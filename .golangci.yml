@@ -1,0 +1,230 @@
+output:
+  sort-results: true
+
+linters-settings:
+  copyloopvar:
+    check-alias: true
+  
+  decorder:
+    dec-order:
+      - type
+      - const
+      - var
+      - func
+    disable-dec-order-check: false
+    disable-init-func-first-check: false
+    disable-dec-num-check: false
+    
+  depguard:
+    rules:
+      all:
+        list-mode: lax
+        deny:
+          - pkg: "text/template"
+            desc: 'use html/template instead of text/template'
+
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    disable-default-exclusions: true
+
+  errchkjson:
+    report-no-exported: true
+
+  exhaustive:
+    check:
+      - switch
+      - map
+    check-generated: true
+    default-signifies-exhaustive: true
+    default-case-required: true
+
+  goconst:
+    numbers: true
+
+  gocritic:
+    enable-all: true
+    settings:
+      captLocal:
+        paramsOnly: false
+      elseif:
+        skipBalanced: false
+      underef:
+        skipRecvDeref: false
+
+  gofumpt:
+    module-path: main
+    extra-rules: true
+
+  gosec:
+    config:
+      global:
+        show-ignored: true
+        audit: true
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment
+
+  grouper:
+    const-require-single-const: true
+    import-require-single-import: true
+    import-require-grouping: true
+    type-require-single-type: true
+
+  misspell:
+    locale: US
+
+  nonamedreturns:
+    report-error-in-defer: true
+
+  perfsprint:
+    err-error: true
+
+  predeclared:
+    q: true
+
+  promlinter:
+    strict: true
+
+  reassign:
+    patterns:
+      - '.*'
+
+  revive:
+    enable-all-rules: true
+    rules:
+      - name: package-comments
+        disabled: true
+      - name: add-constant
+        disabled: true
+      - name: line-length-limit
+        disabled: true
+      - name: cognitive-complexity
+        disabled: true
+      - name: nested-structs
+        disabled: true
+      - name: cyclomatic
+        disabled: true
+      - name: function-length
+        disabled: true
+      - name: get-return
+        disabled: true
+
+  tagalign:
+    strict: true
+
+  tenv:
+    all: true
+
+  testifylint:
+    enable-all: true
+
+  usestdlibvars:
+    time-month: true
+    time-layout: true
+    crypto-hash: true
+    default-rpc-path: true
+    sql-isolation-level: true
+    tls-signature-scheme: true
+    constant-kind: true
+
+issues:
+  exclude-use-default: false
+  exclude-case-sensitive: true
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - canonicalheader
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - decorder
+    - depguard
+    - dogsled
+    - dupl
+    - dupword
+    - durationcheck
+    - err113
+    - errchkjson
+    - errname
+    - errorlint
+    - exhaustive
+    # - exhaustruct
+    - fatcontext
+    - forcetypeassert
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    # - gochecknoglobals
+    - gochecknoinits
+    - gochecksumtype
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - gofmt
+    - gofumpt
+    - goheader
+    - goimports
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - gosmopolitan
+    - grouper
+    - importas
+    - inamedparam
+    - interfacebloat
+    - intrange
+    - ireturn
+    - loggercheck
+    - maintidx
+    - makezero
+    - mirror
+    - misspell
+    # - mnd
+    - musttag
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nonamedreturns
+    - nosprintfhostport
+    - paralleltest
+    - perfsprint
+    - prealloc
+    - promlinter
+    - protogetter
+    - reassign
+    - revive
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
+    - stylecheck
+    - tagalign
+    - tenv
+    - testableexamples
+    - testifylint
+    - testpackage
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+    - wrapcheck
+    - wsl
+    - zerologlint
+    - execinquery
+    - exportloopref

@@ -160,6 +160,8 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		errorPage(w, "getProfile: Failed to do request")
 		return
 	}
+
+	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -203,6 +205,8 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		errorPage(w, "getPost: Failed to do request")
 		return
 	}
+
+	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer postResp.Body.Close()
 
 	if postResp.StatusCode != http.StatusOK {
