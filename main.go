@@ -351,7 +351,7 @@ func main() {
 	manager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
 		HostPolicy: autocert.HostWhitelist("xbsky.app", "raw.xbsky.app"),
-		Cache:      autocert.DirCache("cache/"),
+		Cache:      autocert.DirCache("certs/"),
 	}
 
 	go func() {
