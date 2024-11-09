@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xbsky.app</title>
+    <meta http-equiv="refresh" content="0; url=https://bsky.app/profile/{{.data.Thread.Post.Author.Handle}}/post/{{.postID}}">
+
+    <meta name="theme-color" content="#0c01d0">
+    <meta property="og:site_name" content="xbsky.app">
+    <meta property="og:title" content="{{.data.Thread.Post.Author.DisplayName}} (@{{.data.Thread.Post.Author.Handle}})">
+    <meta property="og:url" content="https://bsky.app/profile/{{.data.Thread.Post.Author.Handle}}/post/{{.postID}}">
+
+    <meta property="twitter:title" content="{{.data.Thread.Post.Author.DisplayName}} (@{{.data.Thread.Post.Author.Handle}})">
+    <meta property="twitter:site" content="@{{.data.Thread.Post.Author.Handle}}">
+    <meta property="twitter:creator" content="@{{.data.Thread.Post.Author.Handle}}">
+
+    {{$addnDesc := ""}}
+    {{if .data.Thread.Parent}}
+        {{$addnDesc = printf "💬 Replying to %s (@%s):\n\n%s" .data.Thread.Parent.Post.Author.DisplayName .data.Thread.Parent.Post.Author.Handle .data.Thread.Parent.Post.Record.Text}}
+    {{end}}
+
+    {{if eq .data.Thread.Post.Embed.Type "app.bsky.embed.record#view"}}
+        {{$addnDesc = printf "📝 Quoting %s (@%s):\n\n%s" .data.Thread.Post.Embed.Record.Author.DisplayName .data.Thread.Post.Embed.Record.Author.Handle .data.Thread.Post.Embed.Record.Value.Text}}
+    {{else if eq .data.Thread.Post.Embed.Type "app.bsky.embed.recordWithMedia#view"}}
+        {{$addnDesc = printf "📝 Quoting %s (@%s):\n\n%s" .data.Thread.Post.Embed.Record.Record.Author.DisplayName .data.Thread.Post.Embed.Record.Record.Author.Handle .data.Thread.Post.Embed.Record.Record.Value.Text}}
+    {{end}}
+
+    <meta property="og:description" content="{{.data.Thread.Post.Record.Text}}
+
+{{$addnDesc}}">
+
+    {{if eq .data.Thread.Post.Embed.Type "app.bsky.embed.images#view"}}
+        <meta property="twitter:card" content="summary_large_image">
+        {{range $i, $v := .data.Thread.Post.Embed.Images}}
+            <meta property="og:image" content="{{$v.FullSize}}">
+            <meta property="og:image:width" content="{{$v.AspectRatio.Width}}">
+            <meta property="og:image:height" content="{{$v.AspectRatio.Height}}">
+            <meta property="twitter:image" content="{{$v.FullSize}}">
+            <meta property="twitter:image:width" content="{{$v.AspectRatio.Width}}">
+            <meta property="twitter:image:height" content="{{$v.AspectRatio.Height}}">
+        {{end}}
+    {{else if eq .data.Thread.Post.Embed.Type "app.bsky.embed.external#view"}}
+        <meta property="twitter:card" content="summary_large_image">
+        <meta property="og:image" content="{{.data.Thread.Post.Embed.External.URI}}">
+        <meta property="twitter:image" content="{{.data.Thread.Post.Embed.External.URI}}">
+    {{else if eq .data.Thread.Post.Embed.Type "app.bsky.embed.video#view"}}
+        <meta property="og:video" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.Thread.Post.Embed.CID}}&did={{.data.Thread.Post.Author.DID}}">
+        <meta property="og:video:secure_url" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.Thread.Post.Embed.CID}}&did={{.data.Thread.Post.Author.DID}}">
+        <meta property="og:video:width" content="{{.data.Thread.Post.Embed.AspectRatio.Width}}">
+        <meta property="og:video:height" content="{{.data.Thread.Post.Embed.AspectRatio.Height}}">
+        <meta property="og:video:type" content="video/mp4">
+        <meta property="og:image" content="{{.data.Thread.Post.Embed.Thumbnail}}">
+        <meta property="twitter:card" content="player">
+        <meta property="twitter:image" content="0">
+        <meta property="twitter:player:stream" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.Thread.Post.Embed.CID}}&did={{.data.Thread.Post.Author.DID}}">
+        <meta property="twitter:player:width" content="{{.data.Thread.Post.Embed.AspectRatio.Width}}">
+        <meta property="twitter:player:height" content="{{.data.Thread.Post.Embed.AspectRatio.Height}}">
+    {{else if eq .data.Thread.Post.Embed.Type "app.bsky.embed.recordWithMedia#view"}}
+        {{if eq .data.Thread.Post.Embed.Media.Type "app.bsky.embed.images#view"}}
+            <meta property="twitter:card" content="summary_large_image">
+            {{range $i, $v := .data.Thread.Post.Embed.Media.Images}}
+                <meta property="og:image" content="{{$v.FullSize}}">
+                <meta property="og:image:width" content="{{$v.AspectRatio.Width}}">
+                <meta property="og:image:height" content="{{$v.AspectRatio.Height}}">
+                <meta property="twitter:image" content="{{$v.FullSize}}">
+                <meta property="twitter:image:width" content="{{$v.AspectRatio.Width}}">
+                <meta property="twitter:image:height" content="{{$v.AspectRatio.Height}}">
+            {{end}}
+        {{else if eq .data.Thread.Post.Embed.Media.Type "app.bsky.embed.external#view"}}
+            <meta property="twitter:card" content="summary_large_image">
+            <meta property="og:image" content="{{.data.Thread.Post.Embed.Media.External.URI}}">
+            <meta property="twitter:image" content="{{.data.Thread.Post.Embed.Media.External.URI}}">
+        {{else if eq .data.Thread.Post.Embed.Media.Type "app.bsky.embed.video#view"}}
+            <meta property="og:video" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.Thread.Post.Embed.Media.CID}}&did={{.data.Thread.Post.Embed.Record.Record.Author.DID}}">
+            <meta property="og:video:secure_url" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.Thread.Post.Embed.Media.CID}}&did={{.data.Thread.Post.Embed.Record.Record.Author.DID}}">
+            <meta property="og:video:width" content="{{.data.Thread.Post.Embed.Media.AspectRatio.Width}}">
+            <meta property="og:video:height" content="{{.data.Thread.Post.Embed.Media.AspectRatio.Height}}">
+            <meta property="og:video:type" content="video/mp4">
+            <meta property="og:image" content="{{.data.Thread.Post.Embed.Media.Thumbnail}}">
+            <meta property="twitter:card" content="player">
+            <meta property="twitter:image" content="0">
+            <meta property="twitter:player:stream" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.Thread.Post.Embed.Media.CID}}&did={{.data.Thread.Post.Embed.Record.Record.Author.DID}}">
+            <meta property="twitter:player:width" content="{{.data.Thread.Post.Embed.Media.AspectRatio.Width}}">
+            <meta property="twitter:player:height" content="{{.data.Thread.Post.Embed.Media.AspectRatio.Height}}">
+        {{end}}
+    {{else}}
+        <meta property="twitter:card" content="summary">
+    {{end}}
+
+    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.Thread.Post.ReplyCount}}&reposts={{.data.Thread.Post.RepostCount}}&likes={{.data.Thread.Post.LikeCount}}&quotes={{.data.Thread.Post.QuoteCount}}">
+</head>
+<body>
+    <p>Redirecting in a moment..</p>
+    <p>Not being redirected? - <a href="https://bsky.app/profile/{{.data.Thread.Post.Author.Handle}}/post/{{.postID}}">click here</a></p>
+</body>
+</html>
