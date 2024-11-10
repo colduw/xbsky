@@ -323,7 +323,7 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		embed.AuthorName = fmt.Sprintf("💬 %d Replies - 🔁 %d Reposts - ❤️ %d Likes - 📝 %d Quotes", replies, reposts, likes, quotes)
+		embed.AuthorName = fmt.Sprintf("💬 %d   🔁 %d   ❤️ %d   📝 %d", replies, reposts, likes, quotes)
 
 		theDesc := r.URL.Query().Get("description")
 		if theDesc != "" {

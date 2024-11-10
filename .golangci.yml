@@ -76,6 +76,9 @@ linters-settings:
   misspell:
     locale: US
 
+  nestif:
+    min-complexity: 10
+
   nonamedreturns:
     report-error-in-defer: true
 
