@@ -30,6 +30,7 @@
 
 {{$addnDesc}}">
 
+    {{$isVideo := false}}
     {{if eq .data.Thread.Post.Embed.Type "app.bsky.embed.images#view"}}
         <meta property="twitter:card" content="summary_large_image">
         {{range $i, $v := .data.Thread.Post.Embed.Images}}
@@ -56,6 +57,7 @@
         <meta property="twitter:player:stream" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.Thread.Post.Embed.CID}}&did={{.data.Thread.Post.Author.DID}}">
         <meta property="twitter:player:width" content="{{.data.Thread.Post.Embed.AspectRatio.Width}}">
         <meta property="twitter:player:height" content="{{.data.Thread.Post.Embed.AspectRatio.Height}}">
+        {{$isVideo = true}}
     {{else if eq .data.Thread.Post.Embed.Type "app.bsky.embed.recordWithMedia#view"}}
         {{if eq .data.Thread.Post.Embed.Media.Type "app.bsky.embed.images#view"}}
             <meta property="twitter:card" content="summary_large_image">
@@ -83,20 +85,13 @@
             <meta property="twitter:player:stream" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.Thread.Post.Embed.Media.CID}}&did={{.data.Thread.Post.Embed.Record.Record.Author.DID}}">
             <meta property="twitter:player:width" content="{{.data.Thread.Post.Embed.Media.AspectRatio.Width}}">
             <meta property="twitter:player:height" content="{{.data.Thread.Post.Embed.Media.AspectRatio.Height}}">
+            {{$isVideo = true}}
         {{end}}
     {{else}}
         <meta property="twitter:card" content="summary">
     {{end}}
 
-    {{if eq .data.Thread.Post.Embed.Type "app.bsky.embed.video#view"}}
-        <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.Thread.Post.ReplyCount}}&reposts={{.data.Thread.Post.RepostCount}}&likes={{.data.Thread.Post.LikeCount}}&quotes={{.data.Thread.Post.QuoteCount}}&description={{.data.Thread.Post.Record.Text}}">
-    {{else if eq .data.Thread.Post.Embed.Type "app.bsky.embed.recordWithMedia#view"}}
-        {{if eq .data.Thread.Post.Embed.Media.Type "app.bsky.embed.video#view"}}
-            <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.Thread.Post.ReplyCount}}&reposts={{.data.Thread.Post.RepostCount}}&likes={{.data.Thread.Post.LikeCount}}&quotes={{.data.Thread.Post.QuoteCount}}&description={{.data.Thread.Post.Record.Text}}">
-        {{end}}
-    {{else}}
-        <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.Thread.Post.ReplyCount}}&reposts={{.data.Thread.Post.RepostCount}}&likes={{.data.Thread.Post.LikeCount}}&quotes={{.data.Thread.Post.QuoteCount}}">
-    {{end}}
+    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.Thread.Post.ReplyCount}}&reposts={{.data.Thread.Post.RepostCount}}&likes={{.data.Thread.Post.LikeCount}}&quotes={{.data.Thread.Post.QuoteCount}}{{if $isVideo}}&description={{.data.Thread.Post.Record.Text}}{{end}}">
 </head>
 <body>
     <p>Redirecting in a moment..</p>

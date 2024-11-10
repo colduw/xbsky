@@ -189,6 +189,7 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 func getPost(w http.ResponseWriter, r *http.Request) {
 	profileID := r.PathValue("profileID")
 	postID := r.PathValue("postID")
+	postID = strings.ReplaceAll(postID, "|", "")
 
 	ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
 	defer cancel()
@@ -258,8 +259,6 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
-	postData.Thread.Post.Record.Text = strings.ReplaceAll(postData.Thread.Post.Record.Text, "|", "")
 
 	if execErr := postTemplate.Execute(w, map[string]any{"data": postData, "postID": postID}); execErr != nil {
 		http.Error(w, "getPost: Failed to execute template", http.StatusInternalServerError)

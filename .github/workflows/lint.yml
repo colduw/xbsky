@@ -4,9 +4,11 @@ on:
   push:
     paths:
       - '**/*.go'
+      - '**/*.mod'
   pull_request:
     paths:
       - '**/*.go'
+      - '**/*.mod'
 
 jobs:
   golangci-lint:
