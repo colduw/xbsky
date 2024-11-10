@@ -88,7 +88,15 @@
         <meta property="twitter:card" content="summary">
     {{end}}
 
-    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.Thread.Post.ReplyCount}}&reposts={{.data.Thread.Post.RepostCount}}&likes={{.data.Thread.Post.LikeCount}}&quotes={{.data.Thread.Post.QuoteCount}}">
+    {{if eq .data.Thread.Post.Embed.Type "app.bsky.embed.video#view"}}
+        <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.Thread.Post.ReplyCount}}&reposts={{.data.Thread.Post.RepostCount}}&likes={{.data.Thread.Post.LikeCount}}&quotes={{.data.Thread.Post.QuoteCount}}&description={{.data.Thread.Post.Record.Text}}">
+    {{else if eq .data.Thread.Post.Embed.Type "app.bsky.embed.recordWithMedia#view"}}
+        {{if eq .data.Thread.Post.Embed.Media.Type "app.bsky.embed.video#view"}}
+            <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.Thread.Post.ReplyCount}}&reposts={{.data.Thread.Post.RepostCount}}&likes={{.data.Thread.Post.LikeCount}}&quotes={{.data.Thread.Post.QuoteCount}}&description={{.data.Thread.Post.Record.Text}}">
+        {{end}}
+    {{else}}
+        <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.Thread.Post.ReplyCount}}&reposts={{.data.Thread.Post.RepostCount}}&likes={{.data.Thread.Post.LikeCount}}&quotes={{.data.Thread.Post.QuoteCount}}">
+    {{end}}
 </head>
 <body>
     <p>Redirecting in a moment..</p>

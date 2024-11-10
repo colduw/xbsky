@@ -131,6 +131,11 @@ type (
 	}
 )
 
+const (
+	maxAuthorLen = 256
+	ellipsisLen  = 3
+)
+
 var (
 	timeoutClient = &http.Client{
 		Timeout: time.Minute,
@@ -319,6 +324,25 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 		}
 
 		embed.AuthorName = fmt.Sprintf("💬 %d Replies - 🔁 %d Reposts - ❤️ %d Likes - 📝 %d Quotes", replies, reposts, likes, quotes)
+
+		theDesc := r.URL.Query().Get("description")
+		if theDesc != "" {
+			cutLen := maxAuthorLen - len(embed.AuthorName+"\n\n")
+
+			if cutLen < 0 {
+				cutLen = 0
+			}
+
+			if len(theDesc) > cutLen {
+				if cutLen >= ellipsisLen {
+					theDesc = theDesc[:cutLen-ellipsisLen] + "..."
+				} else {
+					theDesc = theDesc[:cutLen]
+				}
+			}
+
+			embed.AuthorName = embed.AuthorName + "\n\n" + theDesc
+		}
 	default:
 		http.Error(w, "genOembed: Invalid option", http.StatusInternalServerError)
 		return
