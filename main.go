@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -55,22 +56,7 @@ type (
 
 			// If this is a quote, and if there are embeds,
 			// they'll be here
-			Media struct {
-				Type string `json:"$type"`
-
-				Images []struct {
-					FullSize    string         `json:"fullsize"`
-					AspectRatio apiAspectRatio `json:"aspectRatio"`
-				} `json:"images"`
-
-				External struct {
-					URI string `json:"uri"`
-				} `json:"external"`
-
-				CID         string         `json:"cid"`
-				Thumbnail   string         `json:"thumbnail"`
-				AspectRatio apiAspectRatio `json:"aspectRatio"`
-			} `json:"media"`
+			Media mediaData `json:"media"`
 
 			External struct {
 				URI string `json:"uri"`
@@ -96,9 +82,15 @@ type (
 				} `json:"value"`
 
 				Author struct {
+					DID         string `json:"did"`
 					Handle      string `json:"handle"`
 					DisplayName string `json:"displayName"`
 				} `json:"author"`
+
+				Embeds []struct {
+					mediaData
+					Media mediaData `json:"media"`
+				} `json:"embeds"`
 			} `json:"record"`
 
 			Images []struct {
@@ -115,6 +107,23 @@ type (
 		RepostCount int64 `json:"repostCount"`
 		LikeCount   int64 `json:"likeCount"`
 		QuoteCount  int64 `json:"quoteCount"`
+	}
+
+	mediaData struct {
+		Type string `json:"$type"`
+
+		Images []struct {
+			FullSize    string         `json:"fullsize"`
+			AspectRatio apiAspectRatio `json:"aspectRatio"`
+		} `json:"images"`
+
+		External struct {
+			URI string `json:"uri"`
+		} `json:"external"`
+
+		CID         string         `json:"cid"`
+		Thumbnail   string         `json:"thumbnail"`
+		AspectRatio apiAspectRatio `json:"aspectRatio"`
 	}
 
 	apiAspectRatio struct {
@@ -142,7 +151,7 @@ var (
 	}
 
 	profileTemplate = template.Must(template.ParseFiles("./views/profile.html"))
-	postTemplate    = template.Must(template.ParseFiles("./views/post.html"))
+	postTemplate    = template.Must(template.New("post.html").Funcs(template.FuncMap{"escapePath": url.PathEscape}).ParseFiles("./views/post.html"))
 	errorTemplate   = template.Must(template.ParseFiles("./views/error.html"))
 )
 
@@ -324,8 +333,21 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 
 		embed.AuthorName = fmt.Sprintf("💬 %d   🔁 %d   ❤️ %d   📝 %d", replies, reposts, likes, quotes)
 
-		theDesc := r.URL.Query().Get("description")
+		postDesc := r.URL.Query().Get("description")
+		additionalDesc := r.URL.Query().Get("addndesc")
+
+		theDesc := postDesc + additionalDesc
 		if theDesc != "" {
+			theDesc = postDesc + "\n\n" + additionalDesc
+
+			var unescErr error
+
+			theDesc, unescErr = url.PathUnescape(theDesc)
+			if unescErr != nil {
+				http.Error(w, "genOembed: description url.PathUnescape failed", http.StatusInternalServerError)
+				return
+			}
+
 			cutLen := maxAuthorLen - len(embed.AuthorName+"\n\n")
 
 			if cutLen < 0 {

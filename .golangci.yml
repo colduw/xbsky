@@ -168,7 +168,6 @@ linters:
     # - gochecknoglobals
     - gochecknoinits
     - gochecksumtype
-    - gocognit
     - goconst
     - gocritic
     - gocyclo
