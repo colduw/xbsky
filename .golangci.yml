@@ -228,5 +228,4 @@ linters:
     - wrapcheck
     - wsl
     - zerologlint
-    - execinquery
     - exportloopref
