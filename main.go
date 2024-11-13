@@ -47,7 +47,8 @@ type (
 
 		// Text of the post
 		Record struct {
-			Text string `json:"text"`
+			Text      string `json:"text"`
+			CreatedAt string `json:"createdAt"`
 		} `json:"record"`
 
 		// Embeds of stuff, if any.
@@ -59,7 +60,8 @@ type (
 			Media mediaData `json:"media"`
 
 			External struct {
-				URI string `json:"uri"`
+				Description string `json:"description"`
+				URI         string `json:"uri"`
 			} `json:"external"`
 
 			// This is a text quote
@@ -95,6 +97,7 @@ type (
 
 			Images []struct {
 				FullSize    string         `json:"fullsize"`
+				Alt         string         `json:"alt"`
 				AspectRatio apiAspectRatio `json:"aspectRatio"`
 			} `json:"images"`
 
@@ -114,11 +117,13 @@ type (
 
 		Images []struct {
 			FullSize    string         `json:"fullsize"`
+			Alt         string         `json:"alt"`
 			AspectRatio apiAspectRatio `json:"aspectRatio"`
 		} `json:"images"`
 
 		External struct {
-			URI string `json:"uri"`
+			Description string `json:"description"`
+			URI         string `json:"uri"`
 		} `json:"external"`
 
 		CID         string         `json:"cid"`
@@ -138,11 +143,54 @@ type (
 		ProviderURL  string `json:"provider_url"`
 		AuthorName   string `json:"author_name"`
 	}
+
+	// To reduce redundancy in the template
+	selfData struct {
+		Type string
+
+		Author struct {
+			DID         string `json:"did"`
+			Handle      string `json:"handle"`
+			DisplayName string `json:"displayName"`
+			Avatar      string `json:"avatar"`
+		}
+
+		Record struct {
+			Text      string `json:"text"`
+			CreatedAt string `json:"createdAt"`
+		}
+
+		Images []struct {
+			FullSize    string         `json:"fullsize"`
+			Alt         string         `json:"alt"`
+			AspectRatio apiAspectRatio `json:"aspectRatio"`
+		}
+
+		External struct {
+			Description string `json:"description"`
+			URI         string `json:"uri"`
+		}
+
+		BuiltVideoURL string
+		AddnDesc      string
+		OEmbedURL     string
+		StatsForTG    string
+
+		Thumbnail   string
+		AspectRatio apiAspectRatio
+	}
 )
 
 const (
 	maxAuthorLen = 256
 	ellipsisLen  = 3
+
+	bskyEmbedImages   = "app.bsky.embed.images#view"
+	bskyEmbedExternal = "app.bsky.embed.external#view"
+	bskyEmbedVideo    = "app.bsky.embed.video#view"
+	bskyEmbedQuote    = "app.bsky.embed.recordWithMedia#view"
+	bskyEmbedText     = "app.bsky.embed.record#view"
+	unknownType       = "unknownType"
 )
 
 var (
@@ -151,7 +199,7 @@ var (
 	}
 
 	profileTemplate = template.Must(template.ParseFiles("./views/profile.html"))
-	postTemplate    = template.Must(template.New("post.html").Funcs(template.FuncMap{"escapePath": url.PathEscape}).ParseFiles("./views/post.html"))
+	postTemplate    = template.Must(template.ParseFiles("./views/post.html"))
 	errorTemplate   = template.Must(template.ParseFiles("./views/error.html"))
 )
 
@@ -236,40 +284,170 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if strings.HasPrefix(r.Host, "raw.") {
-		// Essentially post.html L33-L89
-		switch postData.Thread.Post.Embed.Type {
-		case "app.bsky.embed.images#view":
-			// TODO: One big image
-			if len(postData.Thread.Post.Embed.Images) > 0 {
-				// For now, redirect to the first one
-				http.Redirect(w, r, postData.Thread.Post.Embed.Images[0].FullSize, http.StatusFound)
-				return
-			}
-		case "app.bsky.embed.external#view":
-			http.Redirect(w, r, postData.Thread.Post.Embed.External.URI, http.StatusFound)
-			return
-		case "app.bsky.embed.video#view":
-			http.Redirect(w, r, fmt.Sprintf("https://bsky.social/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", postData.Thread.Post.Embed.CID, postData.Thread.Post.Author.DID), http.StatusFound)
-			return
-		case "app.bsky.embed.recordWithMedia#view":
-			switch postData.Thread.Post.Embed.Media.Type {
-			case "app.bsky.embed.images#view":
-				if len(postData.Thread.Post.Embed.Media.Images) > 0 {
-					http.Redirect(w, r, postData.Thread.Post.Embed.Media.Images[0].FullSize, http.StatusFound)
-					return
+	// Build data here instead of in the template
+	var selfData selfData
+
+	selfData.Author = postData.Thread.Post.Author
+	selfData.Record = postData.Thread.Post.Record
+	selfData.OEmbedURL = fmt.Sprintf("https://xbsky.app/oembed?for=post&replies=%d&reposts=%d&likes=%d&quotes=%d", postData.Thread.Post.ReplyCount, postData.Thread.Post.RepostCount, postData.Thread.Post.LikeCount, postData.Thread.Post.QuoteCount)
+	selfData.StatsForTG = fmt.Sprintf("💬 %d   🔁 %d   ❤️ %d   📝 %d", postData.Thread.Post.ReplyCount, postData.Thread.Post.RepostCount, postData.Thread.Post.LikeCount, postData.Thread.Post.QuoteCount)
+
+	// This is just so I won't have to look for it
+	if postData.Thread.Parent != nil {
+		selfData.AddnDesc = fmt.Sprintf("💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
+	}
+
+	switch postData.Thread.Post.Embed.Type {
+	case bskyEmbedText:
+		selfData.AddnDesc = fmt.Sprintf("📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
+	case bskyEmbedQuote:
+		selfData.AddnDesc = fmt.Sprintf("📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
+	}
+
+	// This is to reduce redundancy in the templates
+	switch postData.Thread.Post.Embed.Type {
+	case bskyEmbedImages:
+		// Image(s)
+		selfData.Type = bskyEmbedImages
+		selfData.Images = postData.Thread.Post.Embed.Images
+	case bskyEmbedExternal:
+		// External (eg gifs)
+		selfData.Type = bskyEmbedExternal
+		selfData.External = postData.Thread.Post.Embed.External
+	case bskyEmbedVideo:
+		// Video
+		selfData.Type = bskyEmbedVideo
+		selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", postData.Thread.Post.Embed.CID, postData.Thread.Post.Author.DID)
+		selfData.AspectRatio = postData.Thread.Post.Embed.AspectRatio
+		selfData.Thumbnail = postData.Thread.Post.Embed.Thumbnail
+		selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+	case bskyEmbedQuote:
+		// Quote
+		switch postData.Thread.Post.Embed.Media.Type {
+		case bskyEmbedImages:
+			selfData.Type = bskyEmbedImages
+			selfData.Images = postData.Thread.Post.Embed.Media.Images
+		case bskyEmbedExternal:
+			selfData.Type = bskyEmbedExternal
+			selfData.External = postData.Thread.Post.Embed.Media.External
+		case bskyEmbedVideo:
+			selfData.Type = bskyEmbedVideo
+			selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", postData.Thread.Post.Embed.Media.CID, postData.Thread.Post.Embed.Record.Record.Author.DID)
+			selfData.AspectRatio = postData.Thread.Post.Embed.Media.AspectRatio
+			selfData.Thumbnail = postData.Thread.Post.Embed.Media.Thumbnail
+			selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+		default:
+			selfData.Type = unknownType
+		}
+	default:
+		// Text post, check if parent or quote
+		if postData.Thread.Parent != nil {
+			// Reply
+			switch postData.Thread.Parent.Post.Embed.Type {
+			case bskyEmbedImages:
+				selfData.Type = bskyEmbedImages
+				selfData.Images = postData.Thread.Parent.Post.Embed.Images
+			case bskyEmbedExternal:
+				selfData.Type = bskyEmbedExternal
+				selfData.External = postData.Thread.Parent.Post.Embed.External
+			case bskyEmbedVideo:
+				selfData.Type = bskyEmbedVideo
+				selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", postData.Thread.Parent.Post.Embed.CID, postData.Thread.Parent.Post.Author.DID)
+				selfData.AspectRatio = postData.Thread.Parent.Post.Embed.AspectRatio
+				selfData.Thumbnail = postData.Thread.Parent.Post.Embed.Thumbnail
+				selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+			case bskyEmbedQuote:
+				switch postData.Thread.Parent.Post.Embed.Media.Type {
+				case bskyEmbedImages:
+					selfData.Type = bskyEmbedImages
+					selfData.Images = postData.Thread.Parent.Post.Embed.Media.Images
+				case bskyEmbedExternal:
+					selfData.Type = bskyEmbedExternal
+					selfData.External = postData.Thread.Parent.Post.Embed.Media.External
+				case bskyEmbedVideo:
+					selfData.Type = bskyEmbedVideo
+					selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", postData.Thread.Parent.Post.Embed.Media.CID, postData.Thread.Parent.Post.Embed.Record.Record.Author.DID)
+					selfData.AspectRatio = postData.Thread.Parent.Post.Embed.Media.AspectRatio
+					selfData.Thumbnail = postData.Thread.Parent.Post.Embed.Media.Thumbnail
+					selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+				default:
+					selfData.Type = unknownType
 				}
-			case "app.bsky.embed.external#view":
-				http.Redirect(w, r, postData.Thread.Post.Embed.Media.External.URI, http.StatusFound)
-				return
-			case "app.bsky.embed.video#view":
-				http.Redirect(w, r, fmt.Sprintf("https://bsky.social/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", postData.Thread.Post.Embed.Media.CID, postData.Thread.Post.Embed.Record.Record.Author.DID), http.StatusFound)
-				return
+			default:
+				selfData.Type = unknownType
 			}
+		} else if postData.Thread.Post.Embed.Type == bskyEmbedText {
+			// Do we have any quote embeds?
+			if len(postData.Thread.Post.Embed.Record.Embeds) > 0 {
+				// Yup
+				theEmbed := postData.Thread.Post.Embed.Record.Embeds[0]
+
+				switch theEmbed.Type {
+				case bskyEmbedImages:
+					selfData.Type = bskyEmbedImages
+					selfData.Images = theEmbed.Images
+				case bskyEmbedExternal:
+					selfData.Type = bskyEmbedExternal
+					selfData.External = theEmbed.External
+				case bskyEmbedVideo:
+					selfData.Type = bskyEmbedVideo
+					selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", theEmbed.CID, postData.Thread.Post.Embed.Record.Author.DID)
+					selfData.AspectRatio = theEmbed.AspectRatio
+					selfData.Thumbnail = theEmbed.Thumbnail
+					selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+				case bskyEmbedQuote:
+					switch theEmbed.Media.Type {
+					case bskyEmbedImages:
+						selfData.Type = bskyEmbedImages
+						selfData.Images = theEmbed.Media.Images
+					case bskyEmbedExternal:
+						selfData.Type = bskyEmbedExternal
+						selfData.External = theEmbed.Media.External
+					case bskyEmbedVideo:
+						selfData.Type = bskyEmbedVideo
+						selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", theEmbed.Media.CID, postData.Thread.Post.Embed.Record.Author.DID)
+						selfData.AspectRatio = theEmbed.Media.AspectRatio
+						selfData.Thumbnail = theEmbed.Media.Thumbnail
+						selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+					default:
+						selfData.Type = unknownType
+					}
+				default:
+					selfData.Type = unknownType
+				}
+			} else {
+				// Nope
+				selfData.Type = unknownType
+			}
+		} else {
+			selfData.Type = unknownType
 		}
 	}
 
-	if execErr := postTemplate.Execute(w, map[string]any{"data": postData, "postID": postID}); execErr != nil {
+	if strings.HasPrefix(r.Host, "raw.") {
+		switch selfData.Type {
+		case bskyEmbedImages:
+			if len(selfData.Images) > 0 {
+				http.Redirect(w, r, selfData.Images[0].FullSize, http.StatusFound)
+				return
+			}
+			return
+		case bskyEmbedExternal:
+			http.Redirect(w, r, selfData.External.URI, http.StatusFound)
+			return
+		case bskyEmbedVideo:
+			http.Redirect(w, r, selfData.BuiltVideoURL, http.StatusFound)
+			return
+		default:
+			errorPage(w, "getPost: Invalid type")
+			return
+		}
+	}
+
+	isDiscordAgent := strings.Contains(r.Header.Get("User-Agent"), "Discord")
+	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
+
+	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "postID": postID, "isDiscord": isDiscordAgent, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getPost: Failed to execute template", http.StatusInternalServerError)
 		return
 	}
