@@ -41,22 +41,22 @@
         <meta property="og:image" content="{{.data.External.URI}}">
         <meta property="twitter:image" content="{{.data.External.URI}}">
     {{else if eq .data.Type "app.bsky.embed.video#view"}}
-        <meta property="og:video" content="{{.data.BuiltVideoURL}}">
-        <meta property="og:video:secure_url" content="{{.data.BuiltVideoURL}}">
+        <meta property="og:video" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.VideoCID}}&did={{.data.VideoDID}}">
+        <meta property="og:video:secure_url" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.VideoCID}}&did={{.data.VideoDID}}">
         <meta property="og:video:width" content="{{.data.AspectRatio.Width}}">
         <meta property="og:video:height" content="{{.data.AspectRatio.Height}}">
         <meta property="og:video:type" content="video/mp4">
         <meta property="og:image" content="{{.data.Thumbnail}}">
         <meta property="twitter:card" content="player">
         <meta property="twitter:image" content="0">
-        <meta property="twitter:player:stream" content="{{.data.BuiltVideoURL}}">
+        <meta property="twitter:player:stream" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.VideoCID}}&did={{.data.VideoDID}}">
         <meta property="twitter:player:width" content="{{.data.AspectRatio.Width}}">
         <meta property="twitter:player:height" content="{{.data.AspectRatio.Height}}">
     {{else}}
         <meta property="twitter:card" content="summary">
     {{end}}
 
-    <link rel="alternate" type="application/json+oembed" href="{{.data.OEmbedURL}}">
+    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .IsVideo}}&description={{.data.Record.Text | escapePath}}&addndesc={{.data.AddnDesc | escapePath}}{{end}}">
 </head>
 <body>
     {{if not .isTelegram}}
@@ -76,7 +76,7 @@
                 <img src="{{.data.External.URI}}" alt="{{.data.External.Description}}">
             {{else if eq .data.Type "app.bsky.embed.video#view"}}
                 <video width="{{.data.AspectRatio.Width}}" height="{{.data.AspectRatio.Height}}" controls>
-                    <source src="{{.data.BuiltVideoURL}}" type="video/mp4">
+                    <source src="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.VideoCID}}&did={{.data.VideoDID}}" type="video/mp4">
                 </video>
             {{end}}
         </article>

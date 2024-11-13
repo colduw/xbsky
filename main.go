@@ -171,13 +171,21 @@ type (
 			URI         string `json:"uri"`
 		}
 
-		BuiltVideoURL string
-		AddnDesc      string
-		OEmbedURL     string
-		StatsForTG    string
+		VideoCID string
+		VideoDID string
+
+		AddnDesc   string
+		StatsForTG string
 
 		Thumbnail   string
 		AspectRatio apiAspectRatio
+
+		ReplyCount  int64
+		RepostCount int64
+		LikeCount   int64
+		QuoteCount  int64
+
+		IsVideo bool
 	}
 )
 
@@ -199,7 +207,7 @@ var (
 	}
 
 	profileTemplate = template.Must(template.ParseFiles("./views/profile.html"))
-	postTemplate    = template.Must(template.ParseFiles("./views/post.html"))
+	postTemplate    = template.Must(template.New("post.html").Funcs(template.FuncMap{"escapePath": url.PathEscape}).ParseFiles("./views/post.html"))
 	errorTemplate   = template.Must(template.ParseFiles("./views/error.html"))
 )
 
@@ -289,7 +297,12 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 	selfData.Author = postData.Thread.Post.Author
 	selfData.Record = postData.Thread.Post.Record
-	selfData.OEmbedURL = fmt.Sprintf("https://xbsky.app/oembed?for=post&replies=%d&reposts=%d&likes=%d&quotes=%d", postData.Thread.Post.ReplyCount, postData.Thread.Post.RepostCount, postData.Thread.Post.LikeCount, postData.Thread.Post.QuoteCount)
+
+	selfData.ReplyCount = postData.Thread.Post.ReplyCount
+	selfData.RepostCount = postData.Thread.Post.RepostCount
+	selfData.LikeCount = postData.Thread.Post.LikeCount
+	selfData.QuoteCount = postData.Thread.Post.QuoteCount
+
 	selfData.StatsForTG = fmt.Sprintf("💬 %d   🔁 %d   ❤️ %d   📝 %d", postData.Thread.Post.ReplyCount, postData.Thread.Post.RepostCount, postData.Thread.Post.LikeCount, postData.Thread.Post.QuoteCount)
 
 	// This is just so I won't have to look for it
@@ -317,10 +330,11 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	case bskyEmbedVideo:
 		// Video
 		selfData.Type = bskyEmbedVideo
-		selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", postData.Thread.Post.Embed.CID, postData.Thread.Post.Author.DID)
+		selfData.VideoCID = postData.Thread.Post.Embed.CID
+		selfData.VideoDID = postData.Thread.Post.Author.DID
 		selfData.AspectRatio = postData.Thread.Post.Embed.AspectRatio
 		selfData.Thumbnail = postData.Thread.Post.Embed.Thumbnail
-		selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+		selfData.IsVideo = true
 	case bskyEmbedQuote:
 		// Quote
 		switch postData.Thread.Post.Embed.Media.Type {
@@ -332,10 +346,11 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			selfData.External = postData.Thread.Post.Embed.Media.External
 		case bskyEmbedVideo:
 			selfData.Type = bskyEmbedVideo
-			selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", postData.Thread.Post.Embed.Media.CID, postData.Thread.Post.Embed.Record.Record.Author.DID)
+			selfData.VideoCID = postData.Thread.Post.Embed.Media.CID
+			selfData.VideoDID = postData.Thread.Post.Embed.Record.Record.Author.DID
 			selfData.AspectRatio = postData.Thread.Post.Embed.Media.AspectRatio
 			selfData.Thumbnail = postData.Thread.Post.Embed.Media.Thumbnail
-			selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+			selfData.IsVideo = true
 		default:
 			selfData.Type = unknownType
 		}
@@ -352,10 +367,11 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				selfData.External = postData.Thread.Parent.Post.Embed.External
 			case bskyEmbedVideo:
 				selfData.Type = bskyEmbedVideo
-				selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", postData.Thread.Parent.Post.Embed.CID, postData.Thread.Parent.Post.Author.DID)
+				selfData.VideoCID = postData.Thread.Parent.Post.Embed.CID
+				selfData.VideoDID = postData.Thread.Parent.Post.Author.DID
 				selfData.AspectRatio = postData.Thread.Parent.Post.Embed.AspectRatio
 				selfData.Thumbnail = postData.Thread.Parent.Post.Embed.Thumbnail
-				selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+				selfData.IsVideo = true
 			case bskyEmbedQuote:
 				switch postData.Thread.Parent.Post.Embed.Media.Type {
 				case bskyEmbedImages:
@@ -366,10 +382,11 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 					selfData.External = postData.Thread.Parent.Post.Embed.Media.External
 				case bskyEmbedVideo:
 					selfData.Type = bskyEmbedVideo
-					selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", postData.Thread.Parent.Post.Embed.Media.CID, postData.Thread.Parent.Post.Embed.Record.Record.Author.DID)
+					selfData.VideoCID = postData.Thread.Parent.Post.Embed.Media.CID
+					selfData.VideoDID = postData.Thread.Parent.Post.Embed.Record.Record.Author.DID
 					selfData.AspectRatio = postData.Thread.Parent.Post.Embed.Media.AspectRatio
 					selfData.Thumbnail = postData.Thread.Parent.Post.Embed.Media.Thumbnail
-					selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+					selfData.IsVideo = true
 				default:
 					selfData.Type = unknownType
 				}
@@ -391,10 +408,11 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 					selfData.External = theEmbed.External
 				case bskyEmbedVideo:
 					selfData.Type = bskyEmbedVideo
-					selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", theEmbed.CID, postData.Thread.Post.Embed.Record.Author.DID)
+					selfData.VideoCID = theEmbed.CID
+					selfData.VideoDID = postData.Thread.Post.Embed.Record.Author.DID
 					selfData.AspectRatio = theEmbed.AspectRatio
 					selfData.Thumbnail = theEmbed.Thumbnail
-					selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+					selfData.IsVideo = true
 				case bskyEmbedQuote:
 					switch theEmbed.Media.Type {
 					case bskyEmbedImages:
@@ -405,10 +423,11 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 						selfData.External = theEmbed.Media.External
 					case bskyEmbedVideo:
 						selfData.Type = bskyEmbedVideo
-						selfData.BuiltVideoURL = fmt.Sprintf("https://bsky.social/xrpc/com.atproto.getBlob?cid=%s&did=%s", theEmbed.Media.CID, postData.Thread.Post.Embed.Record.Author.DID)
+						selfData.VideoCID = theEmbed.Media.CID
+						selfData.VideoDID = postData.Thread.Post.Embed.Record.Author.DID
 						selfData.AspectRatio = theEmbed.Media.AspectRatio
 						selfData.Thumbnail = theEmbed.Media.Thumbnail
-						selfData.OEmbedURL += fmt.Sprintf("&description=%s&addndesc=%s", url.PathEscape(selfData.Record.Text), url.PathEscape(selfData.AddnDesc))
+						selfData.IsVideo = true
 					default:
 						selfData.Type = unknownType
 					}
@@ -437,7 +456,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, selfData.External.URI, http.StatusFound)
 			return
 		case bskyEmbedVideo:
-			http.Redirect(w, r, selfData.BuiltVideoURL, http.StatusFound)
+			http.Redirect(w, r, fmt.Sprintf("https://bsky.social/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.VideoCID, selfData.VideoDID), http.StatusFound)
 			return
 		default:
 			errorPage(w, "getPost: Invalid type")
