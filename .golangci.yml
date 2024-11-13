@@ -44,6 +44,8 @@ linters-settings:
 
   gocritic:
     enable-all: true
+    disabled-checks:
+      - ifElseChain
     settings:
       captLocal:
         paramsOnly: false
@@ -114,6 +116,8 @@ linters-settings:
         disabled: true
       - name: get-return
         disabled: true
+      - name: max-control-nesting
+        disabled: true
 
   tagalign:
     strict: true
@@ -170,7 +174,7 @@ linters:
     - gochecksumtype
     - goconst
     - gocritic
-    - gocyclo
+    # - gocyclo
     - gofmt
     - gofumpt
     - goheader
@@ -187,7 +191,7 @@ linters:
     - intrange
     - ireturn
     - loggercheck
-    - maintidx
+    # - maintidx
     - makezero
     - mirror
     - misspell

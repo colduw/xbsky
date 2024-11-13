@@ -145,7 +145,7 @@ type (
 	}
 
 	// To reduce redundancy in the template
-	selfData struct {
+	ownData struct {
 		Type string
 
 		Author struct {
@@ -285,7 +285,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Build data here instead of in the template
-	var selfData selfData
+	var selfData ownData
 
 	selfData.Author = postData.Thread.Post.Author
 	selfData.Record = postData.Thread.Post.Record
@@ -431,6 +431,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, selfData.Images[0].FullSize, http.StatusFound)
 				return
 			}
+
 			return
 		case bskyEmbedExternal:
 			http.Redirect(w, r, selfData.External.URI, http.StatusFound)
