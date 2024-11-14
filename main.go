@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -220,13 +219,15 @@ var (
 
 func getProfile(w http.ResponseWriter, r *http.Request) {
 	profileID := r.PathValue("profileID")
+	profileID = strings.ReplaceAll(profileID, "|", "")
 
-	ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
-	defer cancel()
+	// Sometimes the handles will say "invalid handle"
+	// TODO: Create a helper func to resolve handles
+	// https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=[profileID]
 
 	apiURL := "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=" + profileID
 
-	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, http.NoBody)
+	req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
 	if reqErr != nil {
 		errorPage(w, "getProfile: Failed to create request")
 		return
@@ -263,8 +264,9 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	postID := r.PathValue("postID")
 	postID = strings.ReplaceAll(postID, "|", "")
 
-	ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
-	defer cancel()
+	// Sometimes the handles will say "invalid handle"
+	// TODO: Create a helper func to resolve handles
+	// https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=[profileID]
 
 	if !strings.HasPrefix(profileID, "at://") {
 		profileID = "at://" + profileID
@@ -272,7 +274,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 	postAPIURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=%s/app.bsky.feed.post/%s", profileID, postID)
 
-	postReq, postReqErr := http.NewRequestWithContext(ctx, http.MethodGet, postAPIURL, http.NoBody)
+	postReq, postReqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, postAPIURL, http.NoBody)
 	if postReqErr != nil {
 		errorPage(w, "getPost: Failed to create request")
 		return
