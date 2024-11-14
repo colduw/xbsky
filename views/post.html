@@ -56,7 +56,7 @@
         <meta property="twitter:card" content="summary">
     {{end}}
 
-    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .IsVideo}}&description={{.data.Record.Text | escapePath}}&addndesc={{.data.AddnDesc | escapePath}}{{end}}">
+    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .data.IsVideo}}&description={{.data.Record.Text | escapePath}}&addndesc={{.data.AddnDesc | escapePath}}{{end}}">
 </head>
 <body>
     {{if not .isTelegram}}

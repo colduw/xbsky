@@ -446,6 +446,8 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.Host, "raw.") {
 		switch selfData.Type {
 		case bskyEmbedImages:
+			// TODO: create horizontally stacked image with ffmpeg -filter_complex hstack, and resize to -1:600
+			// on another route or sub
 			if len(selfData.Images) > 0 {
 				http.Redirect(w, r, selfData.Images[0].FullSize, http.StatusFound)
 				return
