@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -22,6 +23,10 @@ type (
 		FollowersCount int64  `json:"followersCount"`
 		FollowsCount   int64  `json:"followsCount"`
 		PostsCount     int64  `json:"postsCount"`
+	}
+
+	apiDID struct {
+		DID string `json:"did"`
 	}
 
 	apiThread struct {
@@ -209,7 +214,7 @@ const (
 
 var (
 	timeoutClient = &http.Client{
-		Timeout: time.Minute,
+		Timeout: 10 * time.Second,
 	}
 
 	profileTemplate = template.Must(template.ParseFiles("./views/profile.html"))
@@ -217,15 +222,48 @@ var (
 	errorTemplate   = template.Must(template.ParseFiles("./views/error.html"))
 )
 
+func resolveHandle(ctx context.Context, handle string) string {
+	apiURL := "https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=" + handle
+
+	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, http.NoBody)
+	if reqErr != nil {
+		return handle
+	}
+
+	resp, respErr := timeoutClient.Do(req)
+	if respErr != nil {
+		return handle
+	}
+
+	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return handle
+	}
+
+	var uDID apiDID
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&uDID); decodeErr != nil {
+		return handle
+	}
+
+	if !strings.HasPrefix(uDID.DID, "did:plc") {
+		return handle
+	}
+
+	return uDID.DID
+}
+
 func getProfile(w http.ResponseWriter, r *http.Request) {
 	profileID := r.PathValue("profileID")
 	profileID = strings.ReplaceAll(profileID, "|", "")
 
-	// Sometimes the handles will say "invalid handle"
-	// TODO: Create a helper func to resolve handles
-	// https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=[profileID]
+	editedPID := profileID
+	if !strings.HasPrefix(editedPID, "did:plc") {
+		editedPID = resolveHandle(r.Context(), editedPID)
+	}
 
-	apiURL := "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=" + profileID
+	apiURL := "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=" + editedPID
 
 	req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
 	if reqErr != nil {
@@ -253,6 +291,10 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if profile.Handle == "handle.invalid" {
+		profile.Handle = profileID
+	}
+
 	if execErr := profileTemplate.Execute(w, map[string]userProfile{"profile": profile}); execErr != nil {
 		http.Error(w, "getProfile: Failed to execute template", http.StatusInternalServerError)
 		return
@@ -264,15 +306,16 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	postID := r.PathValue("postID")
 	postID = strings.ReplaceAll(postID, "|", "")
 
-	// Sometimes the handles will say "invalid handle"
-	// TODO: Create a helper func to resolve handles
-	// https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=[profileID]
-
-	if !strings.HasPrefix(profileID, "at://") {
-		profileID = "at://" + profileID
+	editedPID := profileID
+	if !strings.HasPrefix(editedPID, "did:plc") {
+		editedPID = resolveHandle(r.Context(), editedPID)
 	}
 
-	postAPIURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=%s/app.bsky.feed.post/%s", profileID, postID)
+	if !strings.HasPrefix(editedPID, "at://") {
+		editedPID = "at://" + editedPID
+	}
+
+	postAPIURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=%s/app.bsky.feed.post/%s", editedPID, postID)
 
 	postReq, postReqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, postAPIURL, http.NoBody)
 	if postReqErr != nil {
@@ -305,6 +348,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	var selfData ownData
 
 	selfData.Author = postData.Thread.Post.Author
+	if selfData.Author.Handle == "handle.invalid" {
+		selfData.Author.Handle = profileID
+	}
+
 	selfData.Record = postData.Thread.Post.Record
 
 	selfData.ReplyCount = postData.Thread.Post.ReplyCount
