@@ -35,11 +35,12 @@
             <meta property="twitter:image:height" content="{{$v.AspectRatio.Height}}">
         {{end}}
     {{else if eq .data.Type "app.bsky.embed.external#view"}}
-        <meta property="twitter:card" content="summary_large_image">
         {{if .data.IsGif}}
+            <meta property="twitter:card" content="summary_large_image">
             <meta property="og:image" content="{{.data.External.URI}}">
             <meta property="twitter:image" content="{{.data.External.URI}}">
-        {{else}}
+        {{else if ne .data.External.Thumb ""}}
+            <meta property="twitter:card" content="summary_large_image">
             <meta property="og:image" content="{{.data.External.Thumb}}">
             <meta property="twitter:image" content="{{.data.External.Thumb}}">
         {{end}}
@@ -77,7 +78,7 @@
             {{else if eq .data.Type "app.bsky.embed.external#view"}}
                 {{if .data.IsGif}}
                     <img src="{{.data.External.URI}}" alt="{{.data.External.Description}}">
-                {{else}}
+                {{else if ne .data.External.Thumb ""}}
                     <img src="{{.data.External.Thumb}}" alt="{{.data.External.Description}}">
                 {{end}}
             {{else if eq .data.Type "app.bsky.embed.video#view"}}

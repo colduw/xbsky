@@ -533,7 +533,12 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			http.Redirect(w, r, selfData.External.Thumb, http.StatusFound)
+			if selfData.External.Thumb != "" {
+				http.Redirect(w, r, selfData.External.Thumb, http.StatusFound)
+				return
+			}
+
+			errorPage(w, "getPost: No suitable media found")
 			return
 		case bskyEmbedVideo:
 			http.Redirect(w, r, fmt.Sprintf("https://bsky.social/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.VideoCID, selfData.VideoDID), http.StatusFound)
