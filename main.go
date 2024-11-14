@@ -60,8 +60,10 @@ type (
 			Media mediaData `json:"media"`
 
 			External struct {
-				Description string `json:"description"`
 				URI         string `json:"uri"`
+				Title       string `json:"title"`
+				Description string `json:"description"`
+				Thumb       string `json:"thumb"`
 			} `json:"external"`
 
 			// This is a text quote
@@ -122,8 +124,10 @@ type (
 		} `json:"images"`
 
 		External struct {
-			Description string `json:"description"`
 			URI         string `json:"uri"`
+			Title       string `json:"title"`
+			Description string `json:"description"`
+			Thumb       string `json:"thumb"`
 		} `json:"external"`
 
 		CID         string         `json:"cid"`
@@ -167,15 +171,17 @@ type (
 		}
 
 		External struct {
-			Description string `json:"description"`
 			URI         string `json:"uri"`
+			Title       string `json:"title"`
+			Description string `json:"description"`
+			Thumb       string `json:"thumb"`
 		}
 
 		VideoCID string
 		VideoDID string
 
-		AddnDesc   string
-		StatsForTG string
+		Description string
+		StatsForTG  string
 
 		Thumbnail   string
 		AspectRatio apiAspectRatio
@@ -186,6 +192,7 @@ type (
 		QuoteCount  int64
 
 		IsVideo bool
+		IsGif   bool
 	}
 )
 
@@ -303,19 +310,8 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	selfData.LikeCount = postData.Thread.Post.LikeCount
 	selfData.QuoteCount = postData.Thread.Post.QuoteCount
 
+	selfData.Description = selfData.Record.Text
 	selfData.StatsForTG = fmt.Sprintf("💬 %d   🔁 %d   ❤️ %d   📝 %d", postData.Thread.Post.ReplyCount, postData.Thread.Post.RepostCount, postData.Thread.Post.LikeCount, postData.Thread.Post.QuoteCount)
-
-	// This is just so I won't have to look for it
-	if postData.Thread.Parent != nil {
-		selfData.AddnDesc = fmt.Sprintf("💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
-	}
-
-	switch postData.Thread.Post.Embed.Type {
-	case bskyEmbedText:
-		selfData.AddnDesc = fmt.Sprintf("📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
-	case bskyEmbedQuote:
-		selfData.AddnDesc = fmt.Sprintf("📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
-	}
 
 	// This is to reduce redundancy in the templates
 	switch postData.Thread.Post.Embed.Type {
@@ -324,7 +320,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		selfData.Type = bskyEmbedImages
 		selfData.Images = postData.Thread.Post.Embed.Images
 	case bskyEmbedExternal:
-		// External (eg gifs)
+		// External
 		selfData.Type = bskyEmbedExternal
 		selfData.External = postData.Thread.Post.Embed.External
 	case bskyEmbedVideo:
@@ -443,6 +439,34 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Check the external; is it a GIF?
+	if selfData.Type == bskyEmbedExternal {
+		parsedURL, parseErr := url.Parse(selfData.External.URI)
+		if parseErr != nil {
+			// Let's assume it's not a gif
+			selfData.IsGif = false
+		} else {
+			selfData.IsGif = (parsedURL.Host == "media.tenor.com")
+
+			if !selfData.IsGif {
+				// Not a GIF, Add the external's title & description to the template description
+				selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
+			}
+		}
+	}
+
+	// This is just so I won't have to look for it
+	if postData.Thread.Parent != nil {
+		selfData.Description += fmt.Sprintf("\n\n💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
+	}
+
+	switch postData.Thread.Post.Embed.Type {
+	case bskyEmbedText:
+		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
+	case bskyEmbedQuote:
+		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
+	}
+
 	if strings.HasPrefix(r.Host, "raw.") {
 		switch selfData.Type {
 		case bskyEmbedImages:
@@ -455,10 +479,12 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 			return
 		case bskyEmbedExternal:
-			// TODO: External != GIF
-			// GIF = (Host == "media.tenor.com")
-			// Also, use Sprintf for the description
-			http.Redirect(w, r, selfData.External.URI, http.StatusFound)
+			if selfData.IsGif {
+				http.Redirect(w, r, selfData.External.URI, http.StatusFound)
+				return
+			}
+
+			http.Redirect(w, r, selfData.External.Thumb, http.StatusFound)
 			return
 		case bskyEmbedVideo:
 			http.Redirect(w, r, fmt.Sprintf("https://bsky.social/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.VideoCID, selfData.VideoDID), http.StatusFound)
@@ -536,13 +562,8 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 
 		embed.AuthorName = fmt.Sprintf("💬 %d   🔁 %d   ❤️ %d   📝 %d", replies, reposts, likes, quotes)
 
-		postDesc := r.URL.Query().Get("description")
-		additionalDesc := r.URL.Query().Get("addndesc")
-
-		theDesc := postDesc + additionalDesc
+		theDesc := r.URL.Query().Get("description")
 		if theDesc != "" {
-			theDesc = postDesc + "\n\n" + additionalDesc
-
 			var unescErr error
 
 			theDesc, unescErr = url.PathUnescape(theDesc)

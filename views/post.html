@@ -22,9 +22,7 @@
     <meta property="twitter:site" content="@{{.data.Author.Handle}}">
     <meta property="twitter:creator" content="@{{.data.Author.Handle}}">
 
-    <meta property="og:description" content="{{.data.Record.Text}}
-
-{{.data.AddnDesc}}">
+    <meta property="og:description" content="{{.data.Description}}">
 
     {{if eq .data.Type "app.bsky.embed.images#view"}}
         <meta property="twitter:card" content="summary_large_image">
@@ -38,8 +36,13 @@
         {{end}}
     {{else if eq .data.Type "app.bsky.embed.external#view"}}
         <meta property="twitter:card" content="summary_large_image">
-        <meta property="og:image" content="{{.data.External.URI}}">
-        <meta property="twitter:image" content="{{.data.External.URI}}">
+        {{if .data.IsGif}}
+            <meta property="og:image" content="{{.data.External.URI}}">
+            <meta property="twitter:image" content="{{.data.External.URI}}">
+        {{else}}
+            <meta property="og:image" content="{{.data.External.Thumb}}">
+            <meta property="twitter:image" content="{{.data.External.Thumb}}">
+        {{end}}
     {{else if eq .data.Type "app.bsky.embed.video#view"}}
         <meta property="og:video" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.VideoCID}}&did={{.data.VideoDID}}">
         <meta property="og:video:secure_url" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.VideoCID}}&did={{.data.VideoDID}}">
@@ -56,7 +59,7 @@
         <meta property="twitter:card" content="summary">
     {{end}}
 
-    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .data.IsVideo}}&description={{.data.Record.Text | escapePath}}&addndesc={{.data.AddnDesc | escapePath}}{{end}}">
+    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .data.IsVideo}}&description={{.data.Description | escapePath}}{{end}}">
 </head>
 <body>
     {{if not .isTelegram}}
@@ -66,14 +69,18 @@
         <article>
             <h1><a href="https://bsky.app/profile/{{.data.Author.Handle}}/post/{{.postID}}">{{.data.Author.DisplayName}} (@{{.data.Author.Handle}})</a></h1>
             <p>{{.data.Record.Text}}</p>
-            <p>{{.data.AddnDesc}}</p>
+            <p>{{.data.Description}}</p>
             <p>{{.data.StatsForTG}}</p>
             {{if eq .data.Type "app.bsky.embed.images#view"}}
                 {{range $i, $v := .data.Images}}
                     <img src="{{$v.FullSize}}" alt="{{$v.Alt}}" width="{{$v.AspectRatio.Width}}" height="{{$v.AspectRatio.Height}}">
                 {{end}}
             {{else if eq .data.Type "app.bsky.embed.external#view"}}
-                <img src="{{.data.External.URI}}" alt="{{.data.External.Description}}">
+                {{if .data.IsGif}}
+                    <img src="{{.data.External.URI}}" alt="{{.data.External.Description}}">
+                {{else}}
+                    <img src="{{.data.External.Thumb}}" alt="{{.data.External.Description}}">
+                {{end}}
             {{else if eq .data.Type "app.bsky.embed.video#view"}}
                 <video width="{{.data.AspectRatio.Width}}" height="{{.data.AspectRatio.Height}}" controls>
                     <source src="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.VideoCID}}&did={{.data.VideoDID}}" type="video/mp4">
