@@ -455,6 +455,9 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 			return
 		case bskyEmbedExternal:
+			// TODO: External != GIF
+			// GIF = (Host == "media.tenor.com")
+			// Also, use Sprintf for the description
 			http.Redirect(w, r, selfData.External.URI, http.StatusFound)
 			return
 		case bskyEmbedVideo:
