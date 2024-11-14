@@ -25,6 +25,10 @@ type (
 		PostsCount     int64  `json:"postsCount"`
 	}
 
+	apiDID struct {
+		DID string `json:"did"`
+	}
+
 	apiThread struct {
 		Thread struct {
 			// This is the main post
@@ -60,8 +64,10 @@ type (
 			Media mediaData `json:"media"`
 
 			External struct {
-				Description string `json:"description"`
 				URI         string `json:"uri"`
+				Title       string `json:"title"`
+				Description string `json:"description"`
+				Thumb       string `json:"thumb"`
 			} `json:"external"`
 
 			// This is a text quote
@@ -122,8 +128,10 @@ type (
 		} `json:"images"`
 
 		External struct {
-			Description string `json:"description"`
 			URI         string `json:"uri"`
+			Title       string `json:"title"`
+			Description string `json:"description"`
+			Thumb       string `json:"thumb"`
 		} `json:"external"`
 
 		CID         string         `json:"cid"`
@@ -167,15 +175,17 @@ type (
 		}
 
 		External struct {
-			Description string `json:"description"`
 			URI         string `json:"uri"`
+			Title       string `json:"title"`
+			Description string `json:"description"`
+			Thumb       string `json:"thumb"`
 		}
 
 		VideoCID string
 		VideoDID string
 
-		AddnDesc   string
-		StatsForTG string
+		Description string
+		StatsForTG  string
 
 		Thumbnail   string
 		AspectRatio apiAspectRatio
@@ -186,6 +196,7 @@ type (
 		QuoteCount  int64
 
 		IsVideo bool
+		IsGif   bool
 	}
 )
 
@@ -203,7 +214,7 @@ const (
 
 var (
 	timeoutClient = &http.Client{
-		Timeout: time.Minute,
+		Timeout: 10 * time.Second,
 	}
 
 	profileTemplate = template.Must(template.ParseFiles("./views/profile.html"))
@@ -211,15 +222,50 @@ var (
 	errorTemplate   = template.Must(template.ParseFiles("./views/error.html"))
 )
 
-func getProfile(w http.ResponseWriter, r *http.Request) {
-	profileID := r.PathValue("profileID")
-
-	ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
-	defer cancel()
-
-	apiURL := "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=" + profileID
+func resolveHandle(ctx context.Context, handle string) string {
+	apiURL := "https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=" + handle
 
 	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, http.NoBody)
+	if reqErr != nil {
+		return handle
+	}
+
+	resp, respErr := timeoutClient.Do(req)
+	if respErr != nil {
+		return handle
+	}
+
+	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return handle
+	}
+
+	var uDID apiDID
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&uDID); decodeErr != nil {
+		return handle
+	}
+
+	if !strings.HasPrefix(uDID.DID, "did:plc") {
+		return handle
+	}
+
+	return uDID.DID
+}
+
+func getProfile(w http.ResponseWriter, r *http.Request) {
+	profileID := r.PathValue("profileID")
+	profileID = strings.ReplaceAll(profileID, "|", "")
+
+	editedPID := profileID
+	if !strings.HasPrefix(editedPID, "did:plc") {
+		editedPID = resolveHandle(r.Context(), editedPID)
+	}
+
+	apiURL := "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=" + editedPID
+
+	req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
 	if reqErr != nil {
 		errorPage(w, "getProfile: Failed to create request")
 		return
@@ -245,6 +291,10 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if profile.Handle == "handle.invalid" {
+		profile.Handle = profileID
+	}
+
 	if execErr := profileTemplate.Execute(w, map[string]userProfile{"profile": profile}); execErr != nil {
 		http.Error(w, "getProfile: Failed to execute template", http.StatusInternalServerError)
 		return
@@ -256,16 +306,18 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	postID := r.PathValue("postID")
 	postID = strings.ReplaceAll(postID, "|", "")
 
-	ctx, cancel := context.WithTimeout(r.Context(), time.Minute)
-	defer cancel()
-
-	if !strings.HasPrefix(profileID, "at://") {
-		profileID = "at://" + profileID
+	editedPID := profileID
+	if !strings.HasPrefix(editedPID, "did:plc") {
+		editedPID = resolveHandle(r.Context(), editedPID)
 	}
 
-	postAPIURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=%s/app.bsky.feed.post/%s", profileID, postID)
+	if !strings.HasPrefix(editedPID, "at://") {
+		editedPID = "at://" + editedPID
+	}
 
-	postReq, postReqErr := http.NewRequestWithContext(ctx, http.MethodGet, postAPIURL, http.NoBody)
+	postAPIURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=%s/app.bsky.feed.post/%s", editedPID, postID)
+
+	postReq, postReqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, postAPIURL, http.NoBody)
 	if postReqErr != nil {
 		errorPage(w, "getPost: Failed to create request")
 		return
@@ -296,6 +348,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	var selfData ownData
 
 	selfData.Author = postData.Thread.Post.Author
+	if selfData.Author.Handle == "handle.invalid" {
+		selfData.Author.Handle = profileID
+	}
+
 	selfData.Record = postData.Thread.Post.Record
 
 	selfData.ReplyCount = postData.Thread.Post.ReplyCount
@@ -303,19 +359,8 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	selfData.LikeCount = postData.Thread.Post.LikeCount
 	selfData.QuoteCount = postData.Thread.Post.QuoteCount
 
+	selfData.Description = selfData.Record.Text
 	selfData.StatsForTG = fmt.Sprintf("💬 %d   🔁 %d   ❤️ %d   📝 %d", postData.Thread.Post.ReplyCount, postData.Thread.Post.RepostCount, postData.Thread.Post.LikeCount, postData.Thread.Post.QuoteCount)
-
-	// This is just so I won't have to look for it
-	if postData.Thread.Parent != nil {
-		selfData.AddnDesc = fmt.Sprintf("💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
-	}
-
-	switch postData.Thread.Post.Embed.Type {
-	case bskyEmbedText:
-		selfData.AddnDesc = fmt.Sprintf("📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
-	case bskyEmbedQuote:
-		selfData.AddnDesc = fmt.Sprintf("📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
-	}
 
 	// This is to reduce redundancy in the templates
 	switch postData.Thread.Post.Embed.Type {
@@ -324,7 +369,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		selfData.Type = bskyEmbedImages
 		selfData.Images = postData.Thread.Post.Embed.Images
 	case bskyEmbedExternal:
-		// External (eg gifs)
+		// External
 		selfData.Type = bskyEmbedExternal
 		selfData.External = postData.Thread.Post.Embed.External
 	case bskyEmbedVideo:
@@ -443,6 +488,34 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Check the external; is it a GIF?
+	if selfData.Type == bskyEmbedExternal {
+		parsedURL, parseErr := url.Parse(selfData.External.URI)
+		if parseErr != nil {
+			// Let's assume it's not a gif
+			selfData.IsGif = false
+		} else {
+			selfData.IsGif = (parsedURL.Host == "media.tenor.com")
+
+			if !selfData.IsGif {
+				// Not a GIF, Add the external's title & description to the template description
+				selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
+			}
+		}
+	}
+
+	// This is just so I won't have to look for it
+	if postData.Thread.Parent != nil {
+		selfData.Description += fmt.Sprintf("\n\n💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
+	}
+
+	switch postData.Thread.Post.Embed.Type {
+	case bskyEmbedText:
+		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
+	case bskyEmbedQuote:
+		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
+	}
+
 	if strings.HasPrefix(r.Host, "raw.") {
 		switch selfData.Type {
 		case bskyEmbedImages:
@@ -455,10 +528,17 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 			return
 		case bskyEmbedExternal:
-			// TODO: External != GIF
-			// GIF = (Host == "media.tenor.com")
-			// Also, use Sprintf for the description
-			http.Redirect(w, r, selfData.External.URI, http.StatusFound)
+			if selfData.IsGif {
+				http.Redirect(w, r, selfData.External.URI, http.StatusFound)
+				return
+			}
+
+			if selfData.External.Thumb != "" {
+				http.Redirect(w, r, selfData.External.Thumb, http.StatusFound)
+				return
+			}
+
+			errorPage(w, "getPost: No suitable media found")
 			return
 		case bskyEmbedVideo:
 			http.Redirect(w, r, fmt.Sprintf("https://bsky.social/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.VideoCID, selfData.VideoDID), http.StatusFound)
@@ -536,13 +616,8 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 
 		embed.AuthorName = fmt.Sprintf("💬 %d   🔁 %d   ❤️ %d   📝 %d", replies, reposts, likes, quotes)
 
-		postDesc := r.URL.Query().Get("description")
-		additionalDesc := r.URL.Query().Get("addndesc")
-
-		theDesc := postDesc + additionalDesc
+		theDesc := r.URL.Query().Get("description")
 		if theDesc != "" {
-			theDesc = postDesc + "\n\n" + additionalDesc
-
 			var unescErr error
 
 			theDesc, unescErr = url.PathUnescape(theDesc)
