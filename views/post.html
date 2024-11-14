@@ -68,7 +68,6 @@
     {{else}}
         <article>
             <h1><a href="https://bsky.app/profile/{{.data.Author.Handle}}/post/{{.postID}}">{{.data.Author.DisplayName}} (@{{.data.Author.Handle}})</a></h1>
-            <p>{{.data.Record.Text}}</p>
             <p>{{.data.Description}}</p>
             <p>{{.data.StatsForTG}}</p>
             {{if eq .data.Type "app.bsky.embed.images#view"}}
