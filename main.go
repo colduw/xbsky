@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -39,6 +40,12 @@ type (
 				Post apiPost `json:"post"`
 			} `json:"parent"`
 		} `json:"thread"`
+	}
+
+	apiImages []struct {
+		FullSize    string         `json:"fullsize"`
+		Alt         string         `json:"alt"`
+		AspectRatio apiAspectRatio `json:"aspectRatio"`
 	}
 
 	apiPost struct {
@@ -101,11 +108,7 @@ type (
 				} `json:"embeds"`
 			} `json:"record"`
 
-			Images []struct {
-				FullSize    string         `json:"fullsize"`
-				Alt         string         `json:"alt"`
-				AspectRatio apiAspectRatio `json:"aspectRatio"`
-			} `json:"images"`
+			Images apiImages `json:"images"`
 
 			CID         string         `json:"cid"`
 			Thumbnail   string         `json:"thumbnail"`
@@ -121,11 +124,7 @@ type (
 	mediaData struct {
 		Type string `json:"$type"`
 
-		Images []struct {
-			FullSize    string         `json:"fullsize"`
-			Alt         string         `json:"alt"`
-			AspectRatio apiAspectRatio `json:"aspectRatio"`
-		} `json:"images"`
+		Images apiImages `json:"images"`
 
 		External struct {
 			URI         string `json:"uri"`
@@ -168,11 +167,7 @@ type (
 			CreatedAt string `json:"createdAt"`
 		}
 
-		Images []struct {
-			FullSize    string         `json:"fullsize"`
-			Alt         string         `json:"alt"`
-			AspectRatio apiAspectRatio `json:"aspectRatio"`
-		}
+		Images apiImages
 
 		External struct {
 			URI         string `json:"uri"`
@@ -504,16 +499,20 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if strings.HasPrefix(r.Host, "mosaic.") {
+		if selfData.Type == bskyEmbedImages {
+			genMosaic(w, r, selfData.Images)
+			return
+		}
+
+		errorPage(w, "getPost: Invalid type")
+		return
+	}
+
 	if strings.HasPrefix(r.Host, "raw.") {
 		switch selfData.Type {
 		case bskyEmbedImages:
-			// TODO: create horizontally stacked image with ffmpeg -filter_complex hstack, and resize to -1:600
-			// on another route or sub
-			if len(selfData.Images) > 0 {
-				http.Redirect(w, r, selfData.Images[0].FullSize, http.StatusFound)
-				return
-			}
-
+			genMosaic(w, r, selfData.Images)
 			return
 		case bskyEmbedExternal:
 			if selfData.IsGif {
@@ -552,8 +551,66 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	isDiscordAgent := strings.Contains(r.Header.Get("User-Agent"), "Discord")
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
+	if isTelegramAgent && selfData.Type == bskyEmbedImages && len(selfData.Images) > 1 {
+		var totalWidth int64
+		for _, k := range selfData.Images {
+			totalWidth += k.AspectRatio.Width
+		}
+
+		selfData.Images = apiImages{
+			{
+				FullSize: fmt.Sprintf("https://mosaic.xbsky.app/profile/%s/post/%s", editedPID, postID),
+				Alt:      "",
+				AspectRatio: apiAspectRatio{
+					Width:  totalWidth,
+					Height: 600, // Not really ideal, maybe check all of the images' width, do some math (/2 of the total, or to the smallest one) and do that?
+				},
+			},
+		}
+	}
+
 	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "postID": postID, "isDiscord": isDiscordAgent, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getPost: Failed to execute template", http.StatusInternalServerError)
+		return
+	}
+}
+
+func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
+	switch len(images) {
+	case 0:
+		errorPage(w, "genMosaic: No images")
+		return
+	case 1:
+		http.Redirect(w, r, images[0].FullSize, http.StatusFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+
+	//nolint:prealloc // No
+	var args []string
+	for _, k := range images {
+		args = append(args, "-i", k.FullSize)
+	}
+
+	var filterComplex string
+	for i := range images {
+		filterComplex += fmt.Sprintf("[%d:v]scale=-1:600[m%d];", i, i)
+	}
+
+	for i := range images {
+		filterComplex += fmt.Sprintf("[m%d]", i)
+	}
+	filterComplex += fmt.Sprintf("hstack=inputs=%d", len(images))
+
+	args = append(args, "-filter_complex", filterComplex, "-f", "image2pipe", "-c:v", "png", "pipe:1")
+
+	//nolint:gosec // This is just ffmpeg, with the only external values being k.FullSize, which is from the API
+	cmd := exec.CommandContext(r.Context(), "ffmpeg", args...)
+	cmd.Stdout = w
+
+	if runErr := cmd.Run(); runErr != nil {
+		http.Error(w, "genMosaic: Failed to run", http.StatusInternalServerError)
 		return
 	}
 }
