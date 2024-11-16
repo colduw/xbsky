@@ -315,7 +315,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		editedPID = "at://" + editedPID
 	}
 
-	postAPIURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=%s/app.bsky.feed.post/%s", editedPID, postID)
+	postAPIURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?depth=0&uri=%s/app.bsky.feed.post/%s", editedPID, postID)
 
 	postReq, postReqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, postAPIURL, http.NoBody)
 	if postReqErr != nil {
