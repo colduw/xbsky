@@ -720,9 +720,9 @@ func main() {
 		httpServer := &http.Server{
 			Addr:              ":80",
 			Handler:           manager.HTTPHandler(nil),
-			ReadTimeout:       20 * time.Second,
+			ReadTimeout:       30 * time.Second,
 			ReadHeaderTimeout: 10 * time.Second,
-			WriteTimeout:      20 * time.Second,
+			WriteTimeout:      30 * time.Second,
 			IdleTimeout:       time.Minute,
 		}
 
@@ -735,9 +735,9 @@ func main() {
 		Addr:              ":443",
 		Handler:           sMux,
 		TLSConfig:         manager.TLSConfig(),
-		ReadTimeout:       20 * time.Second,
+		ReadTimeout:       30 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
-		WriteTimeout:      20 * time.Second,
+		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       time.Minute,
 	}
 
