@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>xbsky.app</title>
-    <meta http-equiv="refresh" content="0; url=https://bsky.app/profile/{{.profile.Handle}}">
+    {{if not .isTelegram}}
+        <meta http-equiv="refresh" content="0; url=https://bsky.app/profile/{{.profile.Handle}}">
+    {{end}}
 
     <meta name="theme-color" content="#0c01d0">
     <meta property="og:site_name" content="xbsky.app">
@@ -18,7 +20,7 @@
     <meta property="og:description" content="{{.profile.Description}}">
 
     {{if ne .profile.Avatar ""}}
-        <meta property="twitter:card" content="summary_large_image">
+        <meta property="twitter:card" content="summary">
         <meta property="og:image" content="{{.profile.Avatar}}">
         <meta property="twitter:image" content="{{.profile.Avatar}}">
     {{else}}

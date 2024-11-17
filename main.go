@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -41,13 +42,21 @@ type (
 		} `json:"thread"`
 	}
 
+	apiImages []struct {
+		FullSize    string         `json:"fullsize"`
+		Alt         string         `json:"alt"`
+		AspectRatio apiAspectRatio `json:"aspectRatio"`
+	}
+
+	apiAuthor struct {
+		DID         string `json:"did"`
+		Handle      string `json:"handle"`
+		DisplayName string `json:"displayName"`
+		Avatar      string `json:"avatar"`
+	}
+
 	apiPost struct {
-		Author struct {
-			DID         string `json:"did"`
-			Handle      string `json:"handle"`
-			DisplayName string `json:"displayName"`
-			Avatar      string `json:"avatar"`
-		} `json:"author"`
+		Author apiAuthor `json:"author"`
 
 		// Text of the post
 		Record struct {
@@ -78,11 +87,7 @@ type (
 						Text string `json:"text"`
 					} `json:"value"`
 
-					Author struct {
-						DID         string `json:"did"`
-						Handle      string `json:"handle"`
-						DisplayName string `json:"displayName"`
-					} `json:"author"`
+					Author apiAuthor `json:"author"`
 				} `json:"record"`
 
 				Value struct {
@@ -101,11 +106,7 @@ type (
 				} `json:"embeds"`
 			} `json:"record"`
 
-			Images []struct {
-				FullSize    string         `json:"fullsize"`
-				Alt         string         `json:"alt"`
-				AspectRatio apiAspectRatio `json:"aspectRatio"`
-			} `json:"images"`
+			Images apiImages `json:"images"`
 
 			CID         string         `json:"cid"`
 			Thumbnail   string         `json:"thumbnail"`
@@ -121,11 +122,7 @@ type (
 	mediaData struct {
 		Type string `json:"$type"`
 
-		Images []struct {
-			FullSize    string         `json:"fullsize"`
-			Alt         string         `json:"alt"`
-			AspectRatio apiAspectRatio `json:"aspectRatio"`
-		} `json:"images"`
+		Images apiImages `json:"images"`
 
 		External struct {
 			URI         string `json:"uri"`
@@ -156,23 +153,14 @@ type (
 	ownData struct {
 		Type string
 
-		Author struct {
-			DID         string `json:"did"`
-			Handle      string `json:"handle"`
-			DisplayName string `json:"displayName"`
-			Avatar      string `json:"avatar"`
-		}
+		Author apiAuthor
 
 		Record struct {
 			Text      string `json:"text"`
 			CreatedAt string `json:"createdAt"`
 		}
 
-		Images []struct {
-			FullSize    string         `json:"fullsize"`
-			Alt         string         `json:"alt"`
-			AspectRatio apiAspectRatio `json:"aspectRatio"`
-		}
+		Images apiImages
 
 		External struct {
 			URI         string `json:"uri"`
@@ -295,7 +283,9 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		profile.Handle = profileID
 	}
 
-	if execErr := profileTemplate.Execute(w, map[string]userProfile{"profile": profile}); execErr != nil {
+	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
+
+	if execErr := profileTemplate.Execute(w, map[string]any{"profile": profile, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getProfile: Failed to execute template", http.StatusInternalServerError)
 		return
 	}
@@ -315,7 +305,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		editedPID = "at://" + editedPID
 	}
 
-	postAPIURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri=%s/app.bsky.feed.post/%s", editedPID, postID)
+	postAPIURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?depth=0&uri=%s/app.bsky.feed.post/%s", editedPID, postID)
 
 	postReq, postReqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, postAPIURL, http.NoBody)
 	if postReqErr != nil {
@@ -497,35 +487,30 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		} else {
 			selfData.IsGif = (parsedURL.Host == "media.tenor.com")
 
-			if !selfData.IsGif {
+			if selfData.IsGif {
+				// The template is stupidly persistent on rewriting & to &amp; come hell or high water it will rewrite it
+				selfData.External.URI = "https://media.tenor.com" + parsedURL.Path
+			} else {
 				// Not a GIF, Add the external's title & description to the template description
 				selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
 			}
 		}
 	}
 
-	// This is just so I won't have to look for it
-	if postData.Thread.Parent != nil {
-		selfData.Description += fmt.Sprintf("\n\n💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
-	}
+	if strings.HasPrefix(r.Host, "mosaic.") {
+		if selfData.Type == bskyEmbedImages {
+			genMosaic(w, r, selfData.Images)
+			return
+		}
 
-	switch postData.Thread.Post.Embed.Type {
-	case bskyEmbedText:
-		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
-	case bskyEmbedQuote:
-		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
+		errorPage(w, "getPost: Invalid type")
+		return
 	}
 
 	if strings.HasPrefix(r.Host, "raw.") {
 		switch selfData.Type {
 		case bskyEmbedImages:
-			// TODO: create horizontally stacked image with ffmpeg -filter_complex hstack, and resize to -1:600
-			// on another route or sub
-			if len(selfData.Images) > 0 {
-				http.Redirect(w, r, selfData.Images[0].FullSize, http.StatusFound)
-				return
-			}
-
+			genMosaic(w, r, selfData.Images)
 			return
 		case bskyEmbedExternal:
 			if selfData.IsGif {
@@ -549,11 +534,62 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	isDiscordAgent := strings.Contains(r.Header.Get("User-Agent"), "Discord")
+	// This is just so I won't have to look for it
+	if postData.Thread.Parent != nil {
+		selfData.Description += fmt.Sprintf("\n\n💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
+	}
+
+	switch postData.Thread.Post.Embed.Type {
+	case bskyEmbedText:
+		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
+	case bskyEmbedQuote:
+		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
+	}
+
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "postID": postID, "isDiscord": isDiscordAgent, "isTelegram": isTelegramAgent}); execErr != nil {
+	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getPost: Failed to execute template", http.StatusInternalServerError)
+		return
+	}
+}
+
+func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
+	switch len(images) {
+	case 0:
+		errorPage(w, "genMosaic: No images")
+		return
+	case 1:
+		http.Redirect(w, r, images[0].FullSize, http.StatusFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+
+	//nolint:prealloc // No
+	var args []string
+	for _, k := range images {
+		args = append(args, "-i", k.FullSize)
+	}
+
+	var filterComplex string
+	for i := range images {
+		filterComplex += fmt.Sprintf("[%d:v]scale=-1:600[m%d];", i, i)
+	}
+
+	for i := range images {
+		filterComplex += fmt.Sprintf("[m%d]", i)
+	}
+	filterComplex += fmt.Sprintf("hstack=inputs=%d", len(images))
+
+	args = append(args, "-filter_complex", filterComplex, "-f", "image2pipe", "-c:v", "png", "pipe:1")
+
+	//nolint:gosec // This is just ffmpeg, with the only external values being k.FullSize, which is from the API
+	cmd := exec.CommandContext(r.Context(), "ffmpeg", args...)
+	cmd.Stdout = w
+
+	if runErr := cmd.Run(); runErr != nil {
+		http.Error(w, "genMosaic: Failed to run", http.StatusInternalServerError)
 		return
 	}
 }
@@ -673,7 +709,7 @@ func main() {
 
 	manager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("xbsky.app", "raw.xbsky.app"),
+		HostPolicy: autocert.HostWhitelist("xbsky.app", "raw.xbsky.app", "mosaic.xbsky.app"),
 		Cache:      autocert.DirCache("certs/"),
 	}
 
@@ -681,9 +717,9 @@ func main() {
 		httpServer := &http.Server{
 			Addr:              ":80",
 			Handler:           manager.HTTPHandler(nil),
-			ReadTimeout:       20 * time.Second,
+			ReadTimeout:       30 * time.Second,
 			ReadHeaderTimeout: 10 * time.Second,
-			WriteTimeout:      20 * time.Second,
+			WriteTimeout:      30 * time.Second,
 			IdleTimeout:       time.Minute,
 		}
 
@@ -696,9 +732,9 @@ func main() {
 		Addr:              ":443",
 		Handler:           sMux,
 		TLSConfig:         manager.TLSConfig(),
-		ReadTimeout:       20 * time.Second,
+		ReadTimeout:       30 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
-		WriteTimeout:      20 * time.Second,
+		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       time.Minute,
 	}
 
