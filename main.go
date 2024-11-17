@@ -48,13 +48,15 @@ type (
 		AspectRatio apiAspectRatio `json:"aspectRatio"`
 	}
 
+	apiAuthor struct {
+		DID         string `json:"did"`
+		Handle      string `json:"handle"`
+		DisplayName string `json:"displayName"`
+		Avatar      string `json:"avatar"`
+	}
+
 	apiPost struct {
-		Author struct {
-			DID         string `json:"did"`
-			Handle      string `json:"handle"`
-			DisplayName string `json:"displayName"`
-			Avatar      string `json:"avatar"`
-		} `json:"author"`
+		Author apiAuthor `json:"author"`
 
 		// Text of the post
 		Record struct {
@@ -85,11 +87,7 @@ type (
 						Text string `json:"text"`
 					} `json:"value"`
 
-					Author struct {
-						DID         string `json:"did"`
-						Handle      string `json:"handle"`
-						DisplayName string `json:"displayName"`
-					} `json:"author"`
+					Author apiAuthor `json:"author"`
 				} `json:"record"`
 
 				Value struct {
@@ -155,12 +153,7 @@ type (
 	ownData struct {
 		Type string
 
-		Author struct {
-			DID         string `json:"did"`
-			Handle      string `json:"handle"`
-			DisplayName string `json:"displayName"`
-			Avatar      string `json:"avatar"`
-		}
+		Author apiAuthor
 
 		Record struct {
 			Text      string `json:"text"`
@@ -290,7 +283,9 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		profile.Handle = profileID
 	}
 
-	if execErr := profileTemplate.Execute(w, map[string]userProfile{"profile": profile}); execErr != nil {
+	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
+
+	if execErr := profileTemplate.Execute(w, map[string]any{"profile": profile, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getProfile: Failed to execute template", http.StatusInternalServerError)
 		return
 	}
@@ -548,10 +543,9 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
 	}
 
-	isDiscordAgent := strings.Contains(r.Header.Get("User-Agent"), "Discord")
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isDiscord": isDiscordAgent, "isTelegram": isTelegramAgent}); execErr != nil {
+	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getPost: Failed to execute template", http.StatusInternalServerError)
 		return
 	}

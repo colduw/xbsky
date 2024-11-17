@@ -63,6 +63,11 @@
         <meta property="twitter:player:height" content="{{.data.AspectRatio.Height}}">
     {{else}}
         <meta property="twitter:card" content="summary">
+
+        {{if ne .data.Author.Avatar ""}}
+            <meta property="og:image" content="{{.data.Author.Avatar}}">
+            <meta property="twitter:image" content="{{.data.Author.Avatar}}">
+        {{end}}
     {{end}}
 
     <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .data.IsVideo}}&description={{.data.Description | escapePath}}{{end}}">
@@ -74,6 +79,9 @@
     {{else}}
         <article>
             <h1><a href="https://bsky.app/profile/{{.data.Author.Handle}}/post/{{.postID}}">{{.data.Author.DisplayName}} (@{{.data.Author.Handle}})</a></h1>
+            {{if ne .data.Author.Avatar ""}}
+                <img src="{{.data.Author.Avatar}}" alt="Avatar">
+            {{end}}
             <p>{{.data.Description}}</p>
             <p>{{.data.StatsForTG}}</p>
             {{if eq .data.Type "app.bsky.embed.images#view"}}
