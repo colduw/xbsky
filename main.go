@@ -551,25 +551,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	isDiscordAgent := strings.Contains(r.Header.Get("User-Agent"), "Discord")
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if isTelegramAgent && selfData.Type == bskyEmbedImages && len(selfData.Images) > 1 {
-		var totalWidth int64
-		for _, k := range selfData.Images {
-			totalWidth += k.AspectRatio.Width
-		}
-
-		selfData.Images = apiImages{
-			{
-				FullSize: fmt.Sprintf("https://mosaic.xbsky.app/profile/%s/post/%s", editedPID, postID),
-				Alt:      "",
-				AspectRatio: apiAspectRatio{
-					Width:  totalWidth,
-					Height: 600, // Not really ideal, maybe check all of the images' width, do some math (/2 of the total, or to the smallest one) and do that?
-				},
-			},
-		}
-	}
-
-	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "postID": postID, "isDiscord": isDiscordAgent, "isTelegram": isTelegramAgent}); execErr != nil {
+	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isDiscord": isDiscordAgent, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getPost: Failed to execute template", http.StatusInternalServerError)
 		return
 	}
@@ -730,7 +712,7 @@ func main() {
 
 	manager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("xbsky.app", "raw.xbsky.app"),
+		HostPolicy: autocert.HostWhitelist("xbsky.app", "raw.xbsky.app", "mosaic.xbsky.app"),
 		Cache:      autocert.DirCache("certs/"),
 	}
 

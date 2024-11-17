@@ -26,13 +26,18 @@
 
     {{if eq .data.Type "app.bsky.embed.images#view"}}
         <meta property="twitter:card" content="summary_large_image">
-        {{range $i, $v := .data.Images}}
-            <meta property="og:image" content="{{$v.FullSize}}">
-            <meta property="og:image:width" content="{{$v.AspectRatio.Width}}">
-            <meta property="og:image:height" content="{{$v.AspectRatio.Height}}">
-            <meta property="twitter:image" content="{{$v.FullSize}}">
-            <meta property="twitter:image:width" content="{{$v.AspectRatio.Width}}">
-            <meta property="twitter:image:height" content="{{$v.AspectRatio.Height}}">
+        {{if .isTelegram}}
+            <meta property="og:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
+            <meta property="twitter:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
+        {{else}}
+            {{range $i, $v := .data.Images}}
+                <meta property="og:image" content="{{$v.FullSize}}">
+                <meta property="og:image:width" content="{{$v.AspectRatio.Width}}">
+                <meta property="og:image:height" content="{{$v.AspectRatio.Height}}">
+                <meta property="twitter:image" content="{{$v.FullSize}}">
+                <meta property="twitter:image:width" content="{{$v.AspectRatio.Width}}">
+                <meta property="twitter:image:height" content="{{$v.AspectRatio.Height}}">
+            {{end}}
         {{end}}
     {{else if eq .data.Type "app.bsky.embed.external#view"}}
         {{if .data.IsGif}}
