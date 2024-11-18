@@ -486,14 +486,14 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			selfData.IsGif = false
 		} else {
 			selfData.IsGif = (parsedURL.Host == "media.tenor.com")
+		}
 
-			if selfData.IsGif {
-				// The template is stupidly persistent on rewriting & to &amp; come hell or high water it will rewrite it
-				selfData.External.URI = "https://media.tenor.com" + parsedURL.Path
-			} else {
-				// Not a GIF, Add the external's title & description to the template description
-				selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
-			}
+		if selfData.IsGif {
+			// The template is stupidly persistent on rewriting & to &amp; come hell or high water it will rewrite it
+			selfData.External.URI = "https://media.tenor.com" + parsedURL.Path
+		} else {
+			// Not a GIF, Add the external's title & description to the template description
+			selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
 		}
 	}
 
