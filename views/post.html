@@ -26,7 +26,7 @@
 
     {{if eq .data.Type "app.bsky.embed.images#view"}}
         <meta property="twitter:card" content="summary_large_image">
-        {{if .isTelegram}}
+        {{if and (.isTelegram) (gt (len .data.Images) 1)}}
             <meta property="og:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
             <meta property="twitter:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
         {{else}}
