@@ -214,6 +214,8 @@ const (
 	bskyEmbedQuote    = "app.bsky.embed.recordWithMedia#view"
 	bskyEmbedText     = "app.bsky.embed.record#view"
 	unknownType       = "unknownType"
+
+	invalidHandle = "handle.invalid"
 )
 
 var (
@@ -296,7 +298,7 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if profile.Handle == "handle.invalid" {
+	if profile.Handle == invalidHandle {
 		profile.Handle = profileID
 	}
 
@@ -349,7 +351,7 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 		errorPage(w, "getFeed: failed to decode response")
 	}
 
-	if feed.View.Creator.Handle == "handle.invalid" {
+	if feed.View.Creator.Handle == invalidHandle {
 		feed.View.Creator.Handle = profileID
 	}
 
@@ -408,7 +410,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	var selfData ownData
 
 	selfData.Author = postData.Thread.Post.Author
-	if selfData.Author.Handle == "handle.invalid" {
+	if selfData.Author.Handle == invalidHandle {
 		selfData.Author.Handle = profileID
 	}
 
