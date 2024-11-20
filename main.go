@@ -45,6 +45,19 @@ type (
 		} `json:"thread"`
 	}
 
+	apiFeed struct {
+		View struct {
+			DisplayName string    `json:"displayName"`
+			Description string    `json:"description"`
+			Avatar      string    `json:"avatar"`
+			Creator     apiAuthor `json:"creator"`
+			LikeCount   int64     `json:"likeCount"`
+		} `json:"view"`
+
+		IsOnline bool `json:"isOnline"`
+		IsValid  bool `json:"isValid"`
+	}
+
 	apiImages []struct {
 		FullSize    string         `json:"fullsize"`
 		Alt         string         `json:"alt"`
@@ -209,6 +222,7 @@ var (
 	}
 
 	profileTemplate = template.Must(template.ParseFiles("./views/profile.html"))
+	feedTemplate    = template.Must(template.ParseFiles("./views/feed.html"))
 	postTemplate    = template.Must(template.New("post.html").Funcs(template.FuncMap{"escapePath": url.PathEscape}).ParseFiles("./views/post.html"))
 	errorTemplate   = template.Must(template.ParseFiles("./views/error.html"))
 )
@@ -290,6 +304,59 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 
 	if execErr := profileTemplate.Execute(w, map[string]any{"profile": profile, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getProfile: Failed to execute template", http.StatusInternalServerError)
+		return
+	}
+}
+
+func getFeed(w http.ResponseWriter, r *http.Request) {
+	profileID := r.PathValue("profileID")
+	feedID := r.PathValue("feedID")
+	feedID = strings.ReplaceAll(feedID, "|", "")
+
+	editedPID := profileID
+	if !strings.HasPrefix(editedPID, "did:plc") {
+		editedPID = resolveHandle(r.Context(), editedPID)
+	}
+
+	if !strings.HasPrefix(editedPID, "at://") {
+		editedPID = "at://" + editedPID
+	}
+
+	apiURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getFeedGenerator?feed=%s/app.bsky.feed.generator/%s", editedPID, feedID)
+
+	req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
+	if reqErr != nil {
+		errorPage(w, "getFeed: failed to create request")
+		return
+	}
+
+	resp, respErr := timeoutClient.Do(req)
+	if respErr != nil {
+		errorPage(w, "getFeed: failed to do request")
+		return
+	}
+
+	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errorPage(w, fmt.Sprintf("getFeed: Unexpected status (%s)", resp.Status))
+		return
+	}
+
+	var feed apiFeed
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&feed); decodeErr != nil {
+		errorPage(w, "getFeed: failed to decode response")
+	}
+
+	if feed.View.Creator.Handle == "handle.invalid" {
+		feed.View.Creator.Handle = profileID
+	}
+
+	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
+
+	if execErr := feedTemplate.Execute(w, map[string]any{"feed": feed, "feedID": feedID, "isTelegram": isTelegramAgent}); execErr != nil {
+		http.Error(w, "getFeed: failed to execute template", http.StatusInternalServerError)
 		return
 	}
 }
@@ -691,6 +758,38 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 
 			embed.AuthorName = embed.AuthorName + "\n\n" + theDesc
 		}
+	case "feed":
+		likes, likesErr := strconv.ParseInt(r.URL.Query().Get("likes"), 10, 64)
+		if likesErr != nil {
+			http.Error(w, "genOembed: likes ParseInt failed", http.StatusInternalServerError)
+			return
+		}
+
+		online, onlineErr := strconv.ParseBool(r.URL.Query().Get("online"))
+		if onlineErr != nil {
+			http.Error(w, "genOembed: online ParseBool failed", http.StatusInternalServerError)
+			return
+		}
+
+		valid, validErr := strconv.ParseBool(r.URL.Query().Get("valid"))
+		if validErr != nil {
+			http.Error(w, "genOembed: valid ParseBool failed", http.StatusInternalServerError)
+			return
+		}
+
+		embed.AuthorName = fmt.Sprintf("❤️ %d Likes", likes)
+
+		if online {
+			embed.AuthorName += " - ❌ Not online"
+		} else {
+			embed.AuthorName += " - ✅ Online"
+		}
+
+		if valid {
+			embed.AuthorName += " - ❌ Not valid"
+		} else {
+			embed.AuthorName += " - ✅ Valid"
+		}
 	default:
 		http.Error(w, "genOembed: Invalid option", http.StatusInternalServerError)
 		return
@@ -717,6 +816,7 @@ func main() {
 	sMux := http.NewServeMux()
 	sMux.HandleFunc("GET /profile/{profileID}", getProfile)
 	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}", getPost)
+	sMux.HandleFunc("GET /profile/{profileID}/feed/{feedID}", getFeed)
 	sMux.HandleFunc("GET /oembed", genOembed)
 	sMux.HandleFunc("GET /", redirToGithub)
 

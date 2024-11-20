@@ -19,12 +19,10 @@
 
     <meta property="og:description" content="{{.profile.Description}}">
 
+    <meta property="twitter:card" content="summary">
     {{if ne .profile.Avatar ""}}
-        <meta property="twitter:card" content="summary">
         <meta property="og:image" content="{{.profile.Avatar}}">
         <meta property="twitter:image" content="{{.profile.Avatar}}">
-    {{else}}
-        <meta property="twitter:card" content="summary">
     {{end}}
 
     <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=profile&followers={{.profile.FollowersCount}}&follows={{.profile.FollowsCount}}&posts={{.profile.PostsCount}}&labeler={{.profile.Associated.Labeler}}">
