@@ -24,6 +24,9 @@ type (
 		FollowersCount int64  `json:"followersCount"`
 		FollowsCount   int64  `json:"followsCount"`
 		PostsCount     int64  `json:"postsCount"`
+		Associated     struct {
+			Labeler bool `json:"labeler"`
+		} `json:"associated"`
 	}
 
 	apiDID struct {
@@ -624,7 +627,17 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		labeler, labelerErr := strconv.ParseBool(r.URL.Query().Get("labeler"))
+		if labelerErr != nil {
+			http.Error(w, "genOembed: labeler ParseBool failed", http.StatusInternalServerError)
+			return
+		}
+
 		embed.AuthorName = fmt.Sprintf("👥 %d Followers - 🌐 %d Following - ✍️ %d Posts", followers, follows, posts)
+
+		if labeler {
+			embed.AuthorName += " - 🏷️ Labeler"
+		}
 	case "post":
 		replies, repliesErr := strconv.ParseInt(r.URL.Query().Get("replies"), 10, 64)
 		if repliesErr != nil {
