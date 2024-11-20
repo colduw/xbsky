@@ -782,15 +782,15 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 		embed.AuthorName = fmt.Sprintf("❤️ %d Likes", likes)
 
 		if online {
-			embed.AuthorName += " - ❌ Not online"
-		} else {
 			embed.AuthorName += " - ✅ Online"
+		} else {
+			embed.AuthorName += " - ❌ Not online"
 		}
 
 		if valid {
-			embed.AuthorName += " - ❌ Not valid"
-		} else {
 			embed.AuthorName += " - ✅ Valid"
+		} else {
+			embed.AuthorName += " - ❌ Not valid"
 		}
 	default:
 		http.Error(w, "genOembed: Invalid option", http.StatusInternalServerError)
