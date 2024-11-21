@@ -492,7 +492,7 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 		pack.StarterPack.Creator.Handle = profileID
 	}
 
-	pack.StarterPack.Record.Description = fmt.Sprintf("📦 A starter pack by %s (@%s)", pack.StarterPack.Creator.DisplayName, pack.StarterPack.Creator.Handle) + pack.StarterPack.Record.Description
+	pack.StarterPack.Record.Description = fmt.Sprintf("📦 A starter pack by %s (@%s)\n\n", pack.StarterPack.Creator.DisplayName, pack.StarterPack.Creator.Handle) + pack.StarterPack.Record.Description
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
