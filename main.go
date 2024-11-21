@@ -234,6 +234,7 @@ var (
 
 	profileTemplate = template.Must(template.ParseFiles("./views/profile.html"))
 	feedTemplate    = template.Must(template.ParseFiles("./views/feed.html"))
+	listTemplate    = template.Must(template.ParseFiles("./views/list.html"))
 	postTemplate    = template.Must(template.New("post.html").Funcs(template.FuncMap{"escapePath": url.PathEscape}).ParseFiles("./views/post.html"))
 	errorTemplate   = template.Must(template.ParseFiles("./views/error.html"))
 )
@@ -428,7 +429,7 @@ func getList(w http.ResponseWriter, r *http.Request) {
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if execErr := feedTemplate.Execute(w, map[string]any{"list": list.List, "listID": listID, "isTelegram": isTelegramAgent}); execErr != nil {
+	if execErr := listTemplate.Execute(w, map[string]any{"list": list.List, "listID": listID, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getList: failed to execute template", http.StatusInternalServerError)
 		return
 	}
