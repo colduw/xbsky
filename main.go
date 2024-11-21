@@ -58,6 +58,16 @@ type (
 		IsValid  bool `json:"isValid"`
 	}
 
+	apiList struct {
+		List struct {
+			Name        string    `json:"name"`
+			Purpose     string    `json:"purpose"`
+			Avatar      string    `json:"avatar"`
+			Description string    `json:"description"`
+			Creator     apiAuthor `json:"creator"`
+		} `json:"list"`
+	}
+
 	apiImages []struct {
 		FullSize    string         `json:"fullsize"`
 		Alt         string         `json:"alt"`
@@ -110,11 +120,7 @@ type (
 					Text string `json:"text"`
 				} `json:"value"`
 
-				Author struct {
-					DID         string `json:"did"`
-					Handle      string `json:"handle"`
-					DisplayName string `json:"displayName"`
-				} `json:"author"`
+				Author apiAuthor `json:"author"`
 
 				Embeds []struct {
 					mediaData
@@ -216,6 +222,9 @@ const (
 	unknownType       = "unknownType"
 
 	invalidHandle = "handle.invalid"
+
+	modList    = "app.bsky.graph.defs#modlist"
+	curateList = "app.bsky.graph.defs#curatelist"
 )
 
 var (
@@ -355,10 +364,72 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 		feed.View.Creator.Handle = profileID
 	}
 
+	feed.View.Description = fmt.Sprintf("📡 A feed by %s (@%s)\n\n", feed.View.Creator.DisplayName, feed.View.Creator.Handle) + feed.View.Description
+
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
 	if execErr := feedTemplate.Execute(w, map[string]any{"feed": feed, "feedID": feedID, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getFeed: failed to execute template", http.StatusInternalServerError)
+		return
+	}
+}
+
+func getList(w http.ResponseWriter, r *http.Request) {
+	profileID := r.PathValue("profileID")
+	listID := r.PathValue("listID")
+	listID = strings.ReplaceAll(listID, "|", "")
+
+	editedPID := profileID
+	if !strings.HasPrefix(editedPID, "did:plc") {
+		editedPID = resolveHandle(r.Context(), editedPID)
+	}
+
+	if !strings.HasPrefix(editedPID, "at://") {
+		editedPID = "at://" + editedPID
+	}
+
+	apiURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.graph.getList?limit=1&list=%s/app.bsky.graph.list/%s", editedPID, listID)
+
+	req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
+	if reqErr != nil {
+		errorPage(w, "getList: failed to create request")
+		return
+	}
+
+	resp, respErr := timeoutClient.Do(req)
+	if respErr != nil {
+		errorPage(w, "getList: failed to do request")
+		return
+	}
+
+	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errorPage(w, fmt.Sprintf("getList: Unexpected status (%s)", resp.Status))
+		return
+	}
+
+	var list apiList
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&list); decodeErr != nil {
+		errorPage(w, "getList: failed to decode response")
+	}
+
+	if list.List.Creator.Handle == invalidHandle {
+		list.List.Creator.Handle = profileID
+	}
+
+	switch list.List.Purpose {
+	case modList:
+		list.List.Description = fmt.Sprintf("🚫 A moderation list by %s (@%s)\n\n", list.List.Creator.DisplayName, list.List.Creator.Handle) + list.List.Description
+	case curateList:
+		list.List.Description = fmt.Sprintf("👥 A curator list by %s (@%s)\n\n", list.List.Creator.DisplayName, list.List.Creator.Handle) + list.List.Description
+	}
+
+	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
+
+	if execErr := feedTemplate.Execute(w, map[string]any{"list": list.List, "listID": listID, "isTelegram": isTelegramAgent}); execErr != nil {
+		http.Error(w, "getList: failed to execute template", http.StatusInternalServerError)
 		return
 	}
 }
@@ -819,6 +890,7 @@ func main() {
 	sMux.HandleFunc("GET /profile/{profileID}", getProfile)
 	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}", getPost)
 	sMux.HandleFunc("GET /profile/{profileID}/feed/{feedID}", getFeed)
+	sMux.HandleFunc("GET /profile/{profileID}/lists/{listID}", getList)
 	sMux.HandleFunc("GET /oembed", genOembed)
 	sMux.HandleFunc("GET /", redirToGithub)
 
