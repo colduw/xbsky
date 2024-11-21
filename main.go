@@ -68,6 +68,17 @@ type (
 		} `json:"list"`
 	}
 
+	apiPack struct {
+		StarterPack struct {
+			Record struct {
+				Name        string `json:"name"`
+				Description string `json:"description"`
+			} `json:"record"`
+
+			Creator apiAuthor `json:"creator"`
+		} `json:"starterPack"`
+	}
+
 	apiImages []struct {
 		FullSize    string         `json:"fullsize"`
 		Alt         string         `json:"alt"`
@@ -235,6 +246,7 @@ var (
 	profileTemplate = template.Must(template.ParseFiles("./views/profile.html"))
 	feedTemplate    = template.Must(template.ParseFiles("./views/feed.html"))
 	listTemplate    = template.Must(template.ParseFiles("./views/list.html"))
+	packTemplate    = template.Must(template.ParseFiles("./views/pack.html"))
 	postTemplate    = template.Must(template.New("post.html").Funcs(template.FuncMap{"escapePath": url.PathEscape}).ParseFiles("./views/post.html"))
 	errorTemplate   = template.Must(template.ParseFiles("./views/error.html"))
 )
@@ -431,6 +443,61 @@ func getList(w http.ResponseWriter, r *http.Request) {
 
 	if execErr := listTemplate.Execute(w, map[string]any{"list": list.List, "listID": listID, "isTelegram": isTelegramAgent}); execErr != nil {
 		http.Error(w, "getList: failed to execute template", http.StatusInternalServerError)
+		return
+	}
+}
+
+func getPack(w http.ResponseWriter, r *http.Request) {
+	profileID := r.PathValue("profileID")
+	packID := r.PathValue("packID")
+	packID = strings.ReplaceAll(packID, "|", "")
+
+	editedPID := profileID
+	if !strings.HasPrefix(editedPID, "did:plc") {
+		editedPID = resolveHandle(r.Context(), editedPID)
+	}
+
+	if !strings.HasPrefix(editedPID, "at://") {
+		editedPID = "at://" + editedPID
+	}
+
+	apiURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.graph.getStarterPack?starterPack=%s/app.bsky.graph.starterpack/%s", editedPID, packID)
+
+	req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
+	if reqErr != nil {
+		errorPage(w, "getPack: failed to create request")
+		return
+	}
+
+	resp, respErr := timeoutClient.Do(req)
+	if respErr != nil {
+		errorPage(w, "getPack: failed to do request")
+		return
+	}
+
+	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		errorPage(w, fmt.Sprintf("getPack: Unexpected status (%s)", resp.Status))
+		return
+	}
+
+	var pack apiPack
+	if decodeErr := json.NewDecoder(resp.Body).Decode(&pack); decodeErr != nil {
+		errorPage(w, "getPack: failed to decode response")
+	}
+
+	if pack.StarterPack.Creator.Handle == invalidHandle {
+		pack.StarterPack.Creator.Handle = profileID
+	}
+
+	pack.StarterPack.Record.Description = fmt.Sprintf("📦 A starter pack by %s (@%s)", pack.StarterPack.Creator.DisplayName, pack.StarterPack.Creator.Handle) + pack.StarterPack.Record.Description
+
+	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
+
+	if execErr := packTemplate.Execute(w, map[string]any{"pack": pack.StarterPack, "packID": packID, "isTelegram": isTelegramAgent}); execErr != nil {
+		http.Error(w, "getPack: failed to execute template", http.StatusInternalServerError)
 		return
 	}
 }
@@ -892,6 +959,7 @@ func main() {
 	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}", getPost)
 	sMux.HandleFunc("GET /profile/{profileID}/feed/{feedID}", getFeed)
 	sMux.HandleFunc("GET /profile/{profileID}/lists/{listID}", getList)
+	sMux.HandleFunc("GET /starter-pack/{profileID}/{packID}", getPack)
 	sMux.HandleFunc("GET /oembed", genOembed)
 	sMux.HandleFunc("GET /", redirToGithub)
 
