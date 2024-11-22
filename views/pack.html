@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>xbsky.app</title>
+    {{if not .isTelegram}}
+        <meta http-equiv="refresh" content="0; url=https://bsky.app/starter-pack/{{.pack.Creator.Handle}}/{{.packID}}">
+    {{end}}
+
+    <meta name="theme-color" content="#0c01d0">
+    <meta property="og:site_name" content="xbsky.app">
+    <meta property="og:title" content="{{.pack.Record.Name}}">
+    <meta property="og:url" content="https://bsky.app/starter-pack/{{.pack.Creator.Handle}}/{{.packID}}">
+
+    <meta property="twitter:title" content="{{.pack.Record.Name}}">
+    <meta property="twitter:site" content="@{{.pack.Creator.Handle}}">
+    <meta property="twitter:creator" content="@{{.pack.Creator.Handle}}">
+
+    <meta property="og:description" content="{{.pack.Record.Description}}">
+
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="og:image" content="https://ogcard.cdn.bsky.app/start/{{.pack.Creator.DID}}/{{.packID}}">
+    <meta property="twitter:image" content="https://ogcard.cdn.bsky.app/start/{{.pack.Creator.DID}}/{{.packID}}">
+</head>
+<body>
+    <p>Redirecting in a moment..</p>
+    <p>Not being redirected? - <a href="https://bsky.app/starter-pack/{{.pack.Creator.Handle}}/{{.packID}}">click here</a></p>
+</body>
+</html>
