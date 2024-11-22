@@ -846,14 +846,14 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	case bskyEmbedList:
 		switch selfData.CommonEmbeds.Purpose {
 		case modList:
-			selfData.Description += fmt.Sprintf("\n\n🚫 A moderation list by %s (@%s)\n\n%s", selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
+			selfData.Description += fmt.Sprintf("\n\n%s\n🚫 A moderation list by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
 		case curateList:
-			selfData.Description += fmt.Sprintf("\n\n👥 A curator list by %s (@%s)\n\n%s", selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
+			selfData.Description += fmt.Sprintf("\n\n%s\n👥 A curator list by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
 		}
 	case bskyEmbedPack:
-		selfData.Description += fmt.Sprintf("\n\n📦 A starter pack by %s (@%s)\n\n%s", selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
+		selfData.Description += fmt.Sprintf("\n\n%s\n📦 A starter pack by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
 	case bskyEmbedFeed:
-		selfData.Description += fmt.Sprintf("\n\n📡 A feed by %s (@%s)\n\n%s", selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
+		selfData.Description += fmt.Sprintf("\n\n%s\n📡 A feed by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
 	case bskyEmbedExternal:
 		parsedURL, parseErr := url.Parse(selfData.External.URI)
 		if parseErr != nil {
