@@ -600,6 +600,51 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		default:
 			selfData.Type = unknownType
 		}
+	case bskyEmbedText:
+		// Do we have any quote embeds?
+		if len(postData.Thread.Post.Embed.Record.Embeds) > 0 {
+			// Yup
+			theEmbed := postData.Thread.Post.Embed.Record.Embeds[0]
+
+			switch theEmbed.Type {
+			case bskyEmbedImages:
+				selfData.Type = bskyEmbedImages
+				selfData.Images = theEmbed.Images
+			case bskyEmbedExternal:
+				selfData.Type = bskyEmbedExternal
+				selfData.External = theEmbed.External
+			case bskyEmbedVideo:
+				selfData.Type = bskyEmbedVideo
+				selfData.VideoCID = theEmbed.CID
+				selfData.VideoDID = postData.Thread.Post.Embed.Record.Author.DID
+				selfData.AspectRatio = theEmbed.AspectRatio
+				selfData.Thumbnail = theEmbed.Thumbnail
+				selfData.IsVideo = true
+			case bskyEmbedQuote:
+				switch theEmbed.Media.Type {
+				case bskyEmbedImages:
+					selfData.Type = bskyEmbedImages
+					selfData.Images = theEmbed.Media.Images
+				case bskyEmbedExternal:
+					selfData.Type = bskyEmbedExternal
+					selfData.External = theEmbed.Media.External
+				case bskyEmbedVideo:
+					selfData.Type = bskyEmbedVideo
+					selfData.VideoCID = theEmbed.Media.CID
+					selfData.VideoDID = postData.Thread.Post.Embed.Record.Author.DID
+					selfData.AspectRatio = theEmbed.Media.AspectRatio
+					selfData.Thumbnail = theEmbed.Media.Thumbnail
+					selfData.IsVideo = true
+				default:
+					selfData.Type = unknownType
+				}
+			default:
+				selfData.Type = unknownType
+			}
+		} else {
+			// Nope
+			selfData.Type = unknownType
+		}
 	default:
 		// Text post, check if parent or quote
 		if postData.Thread.Parent != nil {
@@ -637,51 +682,6 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 					selfData.Type = unknownType
 				}
 			default:
-				selfData.Type = unknownType
-			}
-		} else if postData.Thread.Post.Embed.Type == bskyEmbedText {
-			// Do we have any quote embeds?
-			if len(postData.Thread.Post.Embed.Record.Embeds) > 0 {
-				// Yup
-				theEmbed := postData.Thread.Post.Embed.Record.Embeds[0]
-
-				switch theEmbed.Type {
-				case bskyEmbedImages:
-					selfData.Type = bskyEmbedImages
-					selfData.Images = theEmbed.Images
-				case bskyEmbedExternal:
-					selfData.Type = bskyEmbedExternal
-					selfData.External = theEmbed.External
-				case bskyEmbedVideo:
-					selfData.Type = bskyEmbedVideo
-					selfData.VideoCID = theEmbed.CID
-					selfData.VideoDID = postData.Thread.Post.Embed.Record.Author.DID
-					selfData.AspectRatio = theEmbed.AspectRatio
-					selfData.Thumbnail = theEmbed.Thumbnail
-					selfData.IsVideo = true
-				case bskyEmbedQuote:
-					switch theEmbed.Media.Type {
-					case bskyEmbedImages:
-						selfData.Type = bskyEmbedImages
-						selfData.Images = theEmbed.Media.Images
-					case bskyEmbedExternal:
-						selfData.Type = bskyEmbedExternal
-						selfData.External = theEmbed.Media.External
-					case bskyEmbedVideo:
-						selfData.Type = bskyEmbedVideo
-						selfData.VideoCID = theEmbed.Media.CID
-						selfData.VideoDID = postData.Thread.Post.Embed.Record.Author.DID
-						selfData.AspectRatio = theEmbed.Media.AspectRatio
-						selfData.Thumbnail = theEmbed.Media.Thumbnail
-						selfData.IsVideo = true
-					default:
-						selfData.Type = unknownType
-					}
-				default:
-					selfData.Type = unknownType
-				}
-			} else {
-				// Nope
 				selfData.Type = unknownType
 			}
 		} else {
