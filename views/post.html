@@ -61,6 +61,19 @@
         <meta property="twitter:player:stream" content="https://bsky.social/xrpc/com.atproto.sync.getBlob?cid={{.data.VideoCID}}&did={{.data.VideoDID}}">
         <meta property="twitter:player:width" content="{{.data.AspectRatio.Width}}">
         <meta property="twitter:player:height" content="{{.data.AspectRatio.Height}}">
+    {{else if or (eq .data.Type "app.bsky.graph.defs#listView") (eq .data.Type "app.bsky.feed.defs#generatorView") (eq .data.Type "app.bsky.graph.defs#starterPackViewBasic")}}
+        {{if ne .data.CommonEmbeds.Avatar ""}}
+            <meta property="twitter:card" content="summary_large_image">
+            <meta property="og:image" content="{{.data.CommonEmbeds.Avatar}}">
+            <meta property="twitter:image" content="{{.data.CommonEmbeds.Avatar}}">
+        {{else}}
+            <meta property="twitter:card" content="summary">
+
+            {{if ne .data.Author.Avatar ""}}
+                <meta property="og:image" content="{{.data.Author.Avatar}}">
+                <meta property="twitter:image" content="{{.data.Author.Avatar}}">
+            {{end}}
+        {{end}}
     {{else}}
         <meta property="twitter:card" content="summary">
 

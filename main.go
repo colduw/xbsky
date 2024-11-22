@@ -118,6 +118,11 @@ type (
 
 			// This is a text quote
 			Record struct {
+				Type string `json:"$type"`
+
+				// This is for starter packs
+				URI string `json:"uri"`
+
 				// This is a quote with media
 				Record struct {
 					Value struct {
@@ -125,6 +130,10 @@ type (
 					} `json:"value"`
 
 					Author apiAuthor `json:"author"`
+
+					// This is for starter packs
+					Name        string `json:"name"`
+					Description string `json:"description"`
 				} `json:"record"`
 
 				Value struct {
@@ -136,7 +145,44 @@ type (
 				Embeds []struct {
 					mediaData
 					Media mediaData `json:"media"`
+
+					Record struct {
+						Type string `json:"$type"`
+
+						// This is for starter packs
+						URI string `json:"uri"`
+
+						// This is for starter packs
+						Record struct {
+							Description string `json:"description"`
+							Name        string `json:"name"`
+						} `json:"record"`
+
+						// This is for feeds
+						DisplayName string `json:"displayName"`
+
+						// This is for lists
+						Purpose string `json:"purpose"`
+
+						// Found in lists, starter packs, feeds
+						Name        string    `json:"name"`
+						Avatar      string    `json:"avatar"`
+						Description string    `json:"description"`
+						Creator     apiAuthor `json:"creator"`
+					} `json:"record"`
 				} `json:"embeds"`
+
+				// This is for feeds
+				DisplayName string `json:"displayName"`
+
+				// This is for lists
+				Purpose string `json:"purpose"`
+
+				// Found in lists, starter packs, feeds
+				Name        string    `json:"name"`
+				Avatar      string    `json:"avatar"`
+				Description string    `json:"description"`
+				Creator     apiAuthor `json:"creator"`
 			} `json:"record"`
 
 			Images apiImages `json:"images"`
@@ -218,6 +264,14 @@ type (
 
 		IsVideo bool
 		IsGif   bool
+
+		CommonEmbeds struct {
+			Purpose     string
+			Name        string
+			Avatar      string
+			Description string
+			Creator     apiAuthor
+		}
 	}
 )
 
@@ -225,12 +279,16 @@ const (
 	maxAuthorLen = 256
 	ellipsisLen  = 3
 
-	bskyEmbedImages   = "app.bsky.embed.images#view"
-	bskyEmbedExternal = "app.bsky.embed.external#view"
-	bskyEmbedVideo    = "app.bsky.embed.video#view"
-	bskyEmbedQuote    = "app.bsky.embed.recordWithMedia#view"
-	bskyEmbedText     = "app.bsky.embed.record#view"
-	unknownType       = "unknownType"
+	bskyEmbedImages    = "app.bsky.embed.images#view"
+	bskyEmbedExternal  = "app.bsky.embed.external#view"
+	bskyEmbedVideo     = "app.bsky.embed.video#view"
+	bskyEmbedQuote     = "app.bsky.embed.recordWithMedia#view"
+	bskyEmbedText      = "app.bsky.embed.record#view"
+	bskyEmbedTextQuote = "app.bsky.embed.record#viewRecord"
+	bskyEmbedList      = "app.bsky.graph.defs#listView"
+	bskyEmbedFeed      = "app.bsky.feed.defs#generatorView"
+	bskyEmbedPack      = "app.bsky.graph.defs#starterPackViewBasic"
+	unknownType        = "unknownType"
 
 	invalidHandle = "handle.invalid"
 
@@ -639,14 +697,67 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 					selfData.Type = unknownType
 				}
 			default:
-				selfData.Type = unknownType
+				// Text post (assumed), check if this is a list, starter pack, or a feed
+				switch theEmbed.Record.Type {
+				case bskyEmbedList:
+					selfData.Type = bskyEmbedList
+					selfData.CommonEmbeds.Name = theEmbed.Record.Name
+					selfData.CommonEmbeds.Avatar = theEmbed.Record.Avatar
+					selfData.CommonEmbeds.Description = theEmbed.Record.Description
+					selfData.CommonEmbeds.Purpose = theEmbed.Record.Purpose
+					selfData.CommonEmbeds.Creator = theEmbed.Record.Creator
+				case bskyEmbedPack:
+					selfData.Type = bskyEmbedPack
+					selfData.CommonEmbeds.Name = theEmbed.Record.Record.Name
+					selfData.CommonEmbeds.Description = theEmbed.Record.Record.Description
+					selfData.CommonEmbeds.Creator = theEmbed.Record.Creator
+
+					// Show a starter pack card. Discard before and then find the id after this --v, then construct a URL if found (ok)
+					if _, packID, ok := strings.Cut(theEmbed.Record.URI, "app.bsky.graph.starterpack/"); ok {
+						selfData.CommonEmbeds.Avatar = fmt.Sprintf("https://ogcard.cdn.bsky.app/start/%s/%s", theEmbed.Record.Creator.DID, packID)
+					}
+				case bskyEmbedFeed:
+					selfData.Type = bskyEmbedFeed
+					selfData.CommonEmbeds.Name = theEmbed.Record.DisplayName
+					selfData.CommonEmbeds.Avatar = theEmbed.Record.Avatar
+					selfData.CommonEmbeds.Description = theEmbed.Record.Description
+					selfData.CommonEmbeds.Creator = theEmbed.Record.Creator
+				default:
+					selfData.Type = unknownType
+				}
 			}
 		} else {
-			// Nope
-			selfData.Type = unknownType
+			// Nope, check if this is a list, starter pack, or a feed
+			switch postData.Thread.Post.Embed.Record.Type {
+			case bskyEmbedList:
+				selfData.Type = bskyEmbedList
+				selfData.CommonEmbeds.Name = postData.Thread.Post.Embed.Record.Name
+				selfData.CommonEmbeds.Avatar = postData.Thread.Post.Embed.Record.Avatar
+				selfData.CommonEmbeds.Description = postData.Thread.Post.Embed.Record.Description
+				selfData.CommonEmbeds.Purpose = postData.Thread.Post.Embed.Record.Purpose
+				selfData.CommonEmbeds.Creator = postData.Thread.Post.Embed.Record.Creator
+			case bskyEmbedPack:
+				selfData.Type = bskyEmbedPack
+				selfData.CommonEmbeds.Name = postData.Thread.Post.Embed.Record.Record.Name
+				selfData.CommonEmbeds.Description = postData.Thread.Post.Embed.Record.Record.Description
+				selfData.CommonEmbeds.Creator = postData.Thread.Post.Embed.Record.Creator
+
+				// Show a starter pack card. Discard before and then find the id after this --v, then construct a URL if found (ok)
+				if _, packID, ok := strings.Cut(postData.Thread.Post.Embed.Record.URI, "app.bsky.graph.starterpack/"); ok {
+					selfData.CommonEmbeds.Avatar = fmt.Sprintf("https://ogcard.cdn.bsky.app/start/%s/%s", postData.Thread.Post.Embed.Record.Creator.DID, packID)
+				}
+			case bskyEmbedFeed:
+				selfData.Type = bskyEmbedFeed
+				selfData.CommonEmbeds.Name = postData.Thread.Post.Embed.Record.DisplayName
+				selfData.CommonEmbeds.Avatar = postData.Thread.Post.Embed.Record.Avatar
+				selfData.CommonEmbeds.Description = postData.Thread.Post.Embed.Record.Description
+				selfData.CommonEmbeds.Creator = postData.Thread.Post.Embed.Record.Creator
+			default:
+				selfData.Type = unknownType
+			}
 		}
 	default:
-		// Text post, check if parent or quote
+		// Text post (assumed), check if parent or quote
 		if postData.Thread.Parent != nil {
 			// Reply
 			switch postData.Thread.Parent.Post.Embed.Type {
@@ -689,8 +800,33 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Check the external; is it a GIF?
-	if selfData.Type == bskyEmbedExternal {
+	// Add description details, could be done in the switch above, but it's easier to find it here.
+	if postData.Thread.Parent != nil {
+		selfData.Description += fmt.Sprintf("\n\n💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
+	}
+
+	switch postData.Thread.Post.Embed.Type {
+	case bskyEmbedText:
+		if postData.Thread.Post.Embed.Record.Type == bskyEmbedTextQuote {
+			selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
+		}
+	case bskyEmbedQuote:
+		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
+	}
+
+	switch selfData.Type {
+	case bskyEmbedList:
+		switch selfData.CommonEmbeds.Purpose {
+		case modList:
+			selfData.Description += fmt.Sprintf("\n\n🚫 A moderation list by %s (@%s)\n\n%s", selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
+		case curateList:
+			selfData.Description += fmt.Sprintf("\n\n👥 A curator list by %s (@%s)\n\n%s", selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
+		}
+	case bskyEmbedPack:
+		selfData.Description += fmt.Sprintf("\n\n📦 A starter pack by %s (@%s)\n\n%s", selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
+	case bskyEmbedFeed:
+		selfData.Description += fmt.Sprintf("\n\n📡 A feed by %s (@%s)\n\n%s", selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
+	case bskyEmbedExternal:
 		parsedURL, parseErr := url.Parse(selfData.External.URI)
 		if parseErr != nil {
 			// Let's assume it's not a gif
@@ -739,22 +875,18 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		case bskyEmbedVideo:
 			http.Redirect(w, r, fmt.Sprintf("https://bsky.social/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.VideoCID, selfData.VideoDID), http.StatusFound)
 			return
+		case bskyEmbedList, bskyEmbedPack, bskyEmbedFeed:
+			if selfData.CommonEmbeds.Avatar != "" {
+				http.Redirect(w, r, selfData.CommonEmbeds.Avatar, http.StatusFound)
+				return
+			}
+
+			errorPage(w, "getPost: No suitable media found")
+			return
 		default:
 			errorPage(w, "getPost: Invalid type")
 			return
 		}
-	}
-
-	// This is just so I won't have to look for it
-	if postData.Thread.Parent != nil {
-		selfData.Description += fmt.Sprintf("\n\n💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
-	}
-
-	switch postData.Thread.Post.Embed.Type {
-	case bskyEmbedText:
-		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
-	case bskyEmbedQuote:
-		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
 	}
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
