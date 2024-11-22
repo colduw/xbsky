@@ -792,6 +792,34 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				default:
 					selfData.Type = unknownType
 				}
+			case bskyEmbedText:
+				switch postData.Thread.Parent.Post.Embed.Record.Type {
+				case bskyEmbedList:
+					selfData.Type = bskyEmbedList
+					selfData.CommonEmbeds.Name = postData.Thread.Parent.Post.Embed.Record.Name
+					selfData.CommonEmbeds.Avatar = postData.Thread.Parent.Post.Embed.Record.Avatar
+					selfData.CommonEmbeds.Description = postData.Thread.Parent.Post.Embed.Record.Description
+					selfData.CommonEmbeds.Purpose = postData.Thread.Parent.Post.Embed.Record.Purpose
+					selfData.CommonEmbeds.Creator = postData.Thread.Parent.Post.Embed.Record.Creator
+				case bskyEmbedPack:
+					selfData.Type = bskyEmbedPack
+					selfData.CommonEmbeds.Name = postData.Thread.Parent.Post.Embed.Record.Record.Name
+					selfData.CommonEmbeds.Description = postData.Thread.Parent.Post.Embed.Record.Record.Description
+					selfData.CommonEmbeds.Creator = postData.Thread.Parent.Post.Embed.Record.Creator
+
+					// Show a starter pack card. Discard before and then find the id after this --v, then construct a URL if found (ok)
+					if _, packID, ok := strings.Cut(postData.Thread.Parent.Post.Embed.Record.URI, "app.bsky.graph.starterpack/"); ok {
+						selfData.CommonEmbeds.Avatar = fmt.Sprintf("https://ogcard.cdn.bsky.app/start/%s/%s", postData.Thread.Parent.Post.Embed.Record.Creator.DID, packID)
+					}
+				case bskyEmbedFeed:
+					selfData.Type = bskyEmbedFeed
+					selfData.CommonEmbeds.Name = postData.Thread.Parent.Post.Embed.Record.DisplayName
+					selfData.CommonEmbeds.Avatar = postData.Thread.Parent.Post.Embed.Record.Avatar
+					selfData.CommonEmbeds.Description = postData.Thread.Parent.Post.Embed.Record.Description
+					selfData.CommonEmbeds.Creator = postData.Thread.Parent.Post.Embed.Record.Creator
+				default:
+					selfData.Type = unknownType
+				}
 			default:
 				selfData.Type = unknownType
 			}
