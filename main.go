@@ -389,7 +389,8 @@ func resolveHandleHTTP(ctx context.Context, handle string) (string, bool) {
 		return handle, false
 	}
 
-	body, bodyErr := io.ReadAll(io.LimitReader(resp.Body, maxReadLimit))
+	// https://github.com/did-method-plc/did-method-plc?tab=readme-ov-file#identifier-syntax
+	body, bodyErr := io.ReadAll(io.LimitReader(resp.Body, 32))
 	if bodyErr != nil {
 		return handle, false
 	}
