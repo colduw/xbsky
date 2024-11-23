@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os/exec"
@@ -228,6 +230,16 @@ type (
 		AuthorName   string `json:"author_name"`
 	}
 
+	// https://atproto.com/specs/did#did-documents
+	plcDirectory struct {
+		AKA     []string `json:"alsoKnownAs"`
+		Service []struct {
+			ID       string `json:"id"`
+			Type     string `json:"type"`
+			Endpoint string `json:"serviceEndpoint"`
+		} `json:"service"`
+	}
+
 	// To reduce redundancy in the template
 	ownData struct {
 		Type string
@@ -248,6 +260,7 @@ type (
 			Thumb       string `json:"thumb"`
 		}
 
+		PDS      string
 		VideoCID string
 		VideoDID string
 
@@ -278,6 +291,7 @@ type (
 const (
 	maxAuthorLen = 256
 	ellipsisLen  = 3
+	maxReadLimit = 10 * (1024 * 1024)
 
 	bskyEmbedImages    = "app.bsky.embed.images#view"
 	bskyEmbedExternal  = "app.bsky.embed.external#view"
@@ -289,8 +303,6 @@ const (
 	bskyEmbedFeed      = "app.bsky.feed.defs#generatorView"
 	bskyEmbedPack      = "app.bsky.graph.defs#starterPackViewBasic"
 	unknownType        = "unknownType"
-
-	invalidHandle = "handle.invalid"
 
 	modList    = "app.bsky.graph.defs#modlist"
 	curateList = "app.bsky.graph.defs#curatelist"
@@ -309,36 +321,145 @@ var (
 	errorTemplate   = template.Must(template.ParseFiles("./views/error.html"))
 )
 
-func resolveHandle(ctx context.Context, handle string) string {
+// Return values: string = DID, bool = ok (request succeeded or not)
+func resolveHandleAPI(ctx context.Context, handle string) (string, bool) {
 	apiURL := "https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=" + handle
 
 	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, http.NoBody)
 	if reqErr != nil {
-		return handle
+		return handle, false
 	}
 
 	resp, respErr := timeoutClient.Do(req)
 	if respErr != nil {
-		return handle
+		return handle, false
 	}
 
 	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return handle
+		return handle, false
 	}
 
 	var uDID apiDID
 	if decodeErr := json.NewDecoder(resp.Body).Decode(&uDID); decodeErr != nil {
-		return handle
+		return handle, false
 	}
 
-	if !strings.HasPrefix(uDID.DID, "did:plc") {
-		return handle
+	if !strings.HasPrefix(uDID.DID, "did:") {
+		return handle, false
 	}
 
-	return uDID.DID
+	return uDID.DID, true
+}
+
+func resolveHandleDNS(ctx context.Context, handle string) (string, bool) {
+	records, lookupErr := net.DefaultResolver.LookupTXT(ctx, "_atproto."+handle)
+	if lookupErr != nil {
+		return handle, false
+	}
+
+	if len(records) > 0 {
+		if strings.HasPrefix(records[0], "did=") {
+			return strings.TrimPrefix(records[0], "did="), true
+		}
+	}
+
+	return handle, false
+}
+
+func resolveHandleHTTP(ctx context.Context, handle string) (string, bool) {
+	atURL := fmt.Sprintf("https://%s/.well-known/atproto-did", handle)
+
+	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, atURL, http.NoBody)
+	if reqErr != nil {
+		return handle, false
+	}
+
+	resp, respErr := timeoutClient.Do(req)
+	if respErr != nil {
+		return handle, false
+	}
+
+	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return handle, false
+	}
+
+	body, bodyErr := io.ReadAll(io.LimitReader(resp.Body, maxReadLimit))
+	if bodyErr != nil {
+		return handle, false
+	}
+
+	responseBody := string(body)
+
+	if !strings.HasPrefix(responseBody, "did:") {
+		return handle, false
+	}
+
+	return responseBody, true
+}
+
+// https://atproto.com/specs/handle#handle-resolution
+func resolveHandle(ctx context.Context, handle string) string {
+	// Try using the API first
+	if did, ok := resolveHandleAPI(ctx, handle); ok {
+		return did
+	}
+
+	// Try using DNS
+	if did, ok := resolveHandleDNS(ctx, handle); ok {
+		return did
+	}
+
+	// Try using .well-known
+	if did, ok := resolveHandleHTTP(ctx, handle); ok {
+		return did
+	}
+
+	// Failed to find DID, use the handle we got
+	return handle
+}
+
+func resolvePLC(ctx context.Context, did string) plcDirectory {
+	var didURL string
+
+	// https://atproto.com/specs/did#blessed-did-methods
+	if strings.HasPrefix(did, "did:plc:") {
+		didURL = "https://plc.directory/" + did
+	} else if strings.HasPrefix(did, "did:web:") {
+		didURL = fmt.Sprintf("https://%s/.well-known/did.json", strings.TrimPrefix(did, "did:web:"))
+	} else {
+		return plcDirectory{}
+	}
+
+	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, didURL, http.NoBody)
+	if reqErr != nil {
+		return plcDirectory{}
+	}
+
+	resp, respErr := timeoutClient.Do(req)
+	if respErr != nil {
+		return plcDirectory{}
+	}
+
+	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return plcDirectory{}
+	}
+
+	var plc plcDirectory
+
+	if decodeErr := json.NewDecoder(io.LimitReader(resp.Body, maxReadLimit)).Decode(&plc); decodeErr != nil {
+		return plcDirectory{}
+	}
+
+	return plc
 }
 
 func getProfile(w http.ResponseWriter, r *http.Request) {
@@ -349,6 +470,7 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(editedPID, "did:plc") {
 		editedPID = resolveHandle(r.Context(), editedPID)
 	}
+	plcData := resolvePLC(r.Context(), editedPID)
 
 	apiURL := "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=" + editedPID
 
@@ -378,8 +500,8 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if profile.Handle == invalidHandle {
-		profile.Handle = profileID
+	if len(plcData.AKA) > 0 {
+		profile.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
 	}
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
@@ -399,6 +521,7 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(editedPID, "did:plc") {
 		editedPID = resolveHandle(r.Context(), editedPID)
 	}
+	plcData := resolvePLC(r.Context(), editedPID)
 
 	if !strings.HasPrefix(editedPID, "at://") {
 		editedPID = "at://" + editedPID
@@ -431,8 +554,8 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 		errorPage(w, "getFeed: failed to decode response")
 	}
 
-	if feed.View.Creator.Handle == invalidHandle {
-		feed.View.Creator.Handle = profileID
+	if len(plcData.AKA) > 0 {
+		feed.View.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
 	}
 
 	feed.View.Description = fmt.Sprintf("📡 A feed by %s (@%s)\n\n", feed.View.Creator.DisplayName, feed.View.Creator.Handle) + feed.View.Description
@@ -454,6 +577,7 @@ func getList(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(editedPID, "did:plc") {
 		editedPID = resolveHandle(r.Context(), editedPID)
 	}
+	plcData := resolvePLC(r.Context(), editedPID)
 
 	if !strings.HasPrefix(editedPID, "at://") {
 		editedPID = "at://" + editedPID
@@ -486,8 +610,8 @@ func getList(w http.ResponseWriter, r *http.Request) {
 		errorPage(w, "getList: failed to decode response")
 	}
 
-	if list.List.Creator.Handle == invalidHandle {
-		list.List.Creator.Handle = profileID
+	if len(plcData.AKA) > 0 {
+		list.List.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
 	}
 
 	switch list.List.Purpose {
@@ -514,6 +638,7 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(editedPID, "did:plc") {
 		editedPID = resolveHandle(r.Context(), editedPID)
 	}
+	plcData := resolvePLC(r.Context(), editedPID)
 
 	if !strings.HasPrefix(editedPID, "at://") {
 		editedPID = "at://" + editedPID
@@ -546,8 +671,8 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 		errorPage(w, "getPack: failed to decode response")
 	}
 
-	if pack.StarterPack.Creator.Handle == invalidHandle {
-		pack.StarterPack.Creator.Handle = profileID
+	if len(plcData.AKA) > 0 {
+		pack.StarterPack.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
 	}
 
 	pack.StarterPack.Record.Description = fmt.Sprintf("📦 A starter pack by %s (@%s)\n\n", pack.StarterPack.Creator.DisplayName, pack.StarterPack.Creator.Handle) + pack.StarterPack.Record.Description
@@ -569,6 +694,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(editedPID, "did:plc") {
 		editedPID = resolveHandle(r.Context(), editedPID)
 	}
+	plcData := resolvePLC(r.Context(), editedPID)
 
 	if !strings.HasPrefix(editedPID, "at://") {
 		editedPID = "at://" + editedPID
@@ -607,8 +733,17 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	var selfData ownData
 
 	selfData.Author = postData.Thread.Post.Author
-	if selfData.Author.Handle == invalidHandle {
-		selfData.Author.Handle = profileID
+	if len(plcData.AKA) > 0 {
+		selfData.Author.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+	}
+
+	selfData.PDS = "https://bsky.social"
+
+	for i := 0; i < len(plcData.Service); i++ {
+		if plcData.Service[i].ID == "#atproto_pds" && plcData.Service[i].Type == "AtprotoPersonalDataServer" {
+			selfData.PDS = plcData.Service[i].Endpoint
+			break
+		}
 	}
 
 	selfData.Record = postData.Thread.Post.Record
@@ -901,7 +1036,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			errorPage(w, "getPost: No suitable media found")
 			return
 		case bskyEmbedVideo:
-			http.Redirect(w, r, fmt.Sprintf("https://bsky.social/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.VideoCID, selfData.VideoDID), http.StatusFound)
+			http.Redirect(w, r, fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.PDS, selfData.VideoCID, selfData.VideoDID), http.StatusFound)
 			return
 		case bskyEmbedList, bskyEmbedPack, bskyEmbedFeed:
 			if selfData.CommonEmbeds.Avatar != "" {
