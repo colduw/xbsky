@@ -739,9 +739,9 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 	selfData.PDS = "https://bsky.social"
 
-	for i := range len(plcData.Service) {
-		if plcData.Service[i].ID == "#atproto_pds" && plcData.Service[i].Type == "AtprotoPersonalDataServer" {
-			selfData.PDS = plcData.Service[i].Endpoint
+	for _, k := range plcData.Service {
+		if k.ID == "#atproto_pds" && k.Type == "AtprotoPersonalDataServer" {
+			selfData.PDS = k.Endpoint
 			break
 		}
 	}
