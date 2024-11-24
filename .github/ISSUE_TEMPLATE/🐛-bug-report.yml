@@ -1,6 +1,7 @@
 name: "\U0001F41B Bug report"
 about: Found a bug? report it here!
-assignees: colduw
+assignees:
+  - colduw
 body:
   - type: textarea
   id: bug-desc
