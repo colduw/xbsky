@@ -1,0 +1,62 @@
+name: "\U0001F41B Bug report"
+about: Found a bug? report it here!
+assignees: colduw
+body:
+  - type: textarea
+  id: bug-desc
+  attributes:
+    label: Describe the bug
+    description: A brief description of what the bug is
+  validations:
+      required: true
+    
+  - type: textarea
+  id: bug-urls
+  attributes:
+    label: Post(s) / URL(s) that you encountered this bug at
+    description: A list of urls to posts that have this bug
+  validations:
+    required: true
+      
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      description: Which platform did you find this bug?
+      multiple: true
+      options:
+        - Discord
+        - Telegram
+        - Somewhere else (specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: platform-cont
+    attributes:
+      label: Platform (not listed)
+      description: If the platform you experienced the bug on is not listed above, specify here.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Before you submit the bug report, just make sure of a few things..
+      options:
+        - label: The post was not deleted, and still exists
+        required: true
+        - label: The authors handle was not changed, and is still the same
+        required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Additional details / screenshot(s)
+      description: |
+        If you can provide a visual example of the bug, it'd help, but is not a requirement,
+        or if you have any additional details, put them here
+
+        [To attach images, click this area and drag them in.]
+    validations:
+      required: false
