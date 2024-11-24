@@ -1,23 +1,23 @@
 name: "\U0001F41B Bug report"
-about: Found a bug? report it here!
+description: Found a bug? Report it here!
 assignees:
   - colduw
 body:
   - type: textarea
-  id: bug-desc
-  attributes:
-    label: Describe the bug
-    description: A brief description of what the bug is
-  validations:
-      required: true
+    id: bug-desc
+    attributes:
+      label: Describe the bug
+      description: A brief description of what the bug is
+    validations:
+        required: true
     
   - type: textarea
-  id: bug-urls
-  attributes:
-    label: Post(s) / URL(s) that you encountered this bug at
-    description: A list of urls to posts that have this bug
-  validations:
-    required: true
+    id: bug-urls
+    attributes:
+      label: Post(s) / URL(s) that you encountered this bug at
+      description: A list of urls to posts that have this bug
+    validations:
+      required: true
       
   - type: dropdown
     id: platform
@@ -47,9 +47,9 @@ body:
       description: Before you submit the bug report, just make sure of a few things..
       options:
         - label: The post was not deleted, and still exists
-        required: true
+          required: true
         - label: The authors handle was not changed, and is still the same
-        required: true
+          required: true
   - type: textarea
     id: screenshots
     attributes:
