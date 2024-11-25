@@ -970,7 +970,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			selfData.Description += "\n\n"
 		}
 
-		selfData.Description += fmt.Sprintf("💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
+		selfData.Description += fmt.Sprintf("💬 Replying to %s (@%s):\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
 	}
 
 	switch postData.Thread.Post.Embed.Type {
@@ -980,14 +980,14 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				selfData.Description += "\n\n"
 			}
 
-			selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
+			selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
 		}
 	case bskyEmbedQuote:
 		if selfData.Description != "" {
 			selfData.Description += "\n\n"
 		}
 
-		selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
+		selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
 	}
 
 	switch selfData.Type {
