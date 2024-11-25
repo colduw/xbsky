@@ -559,7 +559,7 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 		feed.View.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
 	}
 
-	feed.View.Description = fmt.Sprintf("📡 A feed by %s (@%s)\n\n", feed.View.Creator.DisplayName, feed.View.Creator.Handle) + feed.View.Description
+	feed.View.Description = fmt.Sprintf("📡 A feed by %s (@%s)\n\n%s", feed.View.Creator.DisplayName, feed.View.Creator.Handle, feed.View.Description)
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
@@ -617,9 +617,9 @@ func getList(w http.ResponseWriter, r *http.Request) {
 
 	switch list.List.Purpose {
 	case modList:
-		list.List.Description = fmt.Sprintf("🚫 A moderation list by %s (@%s)\n\n", list.List.Creator.DisplayName, list.List.Creator.Handle) + list.List.Description
+		list.List.Description = fmt.Sprintf("🚫 A moderation list by %s (@%s)\n\n%s", list.List.Creator.DisplayName, list.List.Creator.Handle, list.List.Description)
 	case curateList:
-		list.List.Description = fmt.Sprintf("👥 A curator list by %s (@%s)\n\n", list.List.Creator.DisplayName, list.List.Creator.Handle) + list.List.Description
+		list.List.Description = fmt.Sprintf("👥 A curator list by %s (@%s)\n\n%s", list.List.Creator.DisplayName, list.List.Creator.Handle, list.List.Description)
 	}
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
@@ -676,7 +676,7 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 		pack.StarterPack.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
 	}
 
-	pack.StarterPack.Record.Description = fmt.Sprintf("📦 A starter pack by %s (@%s)\n\n", pack.StarterPack.Creator.DisplayName, pack.StarterPack.Creator.Handle) + pack.StarterPack.Record.Description
+	pack.StarterPack.Record.Description = fmt.Sprintf("📦 A starter pack by %s (@%s)\n\n%s", pack.StarterPack.Creator.DisplayName, pack.StarterPack.Creator.Handle, pack.StarterPack.Record.Description)
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
@@ -966,16 +966,28 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 	// Add description details, could be done in the switch above, but it's easier to find it here.
 	if postData.Thread.Parent != nil {
-		selfData.Description += fmt.Sprintf("\n\n💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
+		if selfData.Description != "" {
+			selfData.Description += "\n\n"
+		}
+
+		selfData.Description += fmt.Sprintf("💬 Replying to %s (@%s):\n\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
 	}
 
 	switch postData.Thread.Post.Embed.Type {
 	case bskyEmbedText:
 		if postData.Thread.Post.Embed.Record.Type == bskyEmbedTextQuote {
-			selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
+			if selfData.Description != "" {
+				selfData.Description += "\n\n"
+			}
+
+			selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
 		}
 	case bskyEmbedQuote:
-		selfData.Description += fmt.Sprintf("\n\n📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
+		if selfData.Description != "" {
+			selfData.Description += "\n\n"
+		}
+
+		selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
 	}
 
 	switch selfData.Type {
