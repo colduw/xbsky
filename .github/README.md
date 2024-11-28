@@ -1,5 +1,5 @@
 # xbsky
-A simple Bluesky embedder for Telegram and Discord, written in Go
+A simple Bluesky embed fixer for Telegram and Discord, written in Go
 
 # Usage
 Add an `x` before `bsky.app`, so it becomes `xbsky.app`
