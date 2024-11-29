@@ -1251,13 +1251,19 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 }
 
 func errorPage(w http.ResponseWriter, errorMessage string) {
-	if execErr := errorTemplate.Execute(w, map[string]string{"errorMsg": errorMessage}); execErr != nil {
-		http.Error(w, "Failed to execute template", http.StatusInternalServerError)
-		return
-	}
+	w.WriteHeader(http.StatusInternalServerError)
+
+	//nolint:errcheck,gosec,revive // unless there is a divine intervention, this shouldn't fail
+	// if it does, an http.Error is not going to save it.
+	errorTemplate.Execute(w, map[string]string{"errorMsg": errorMessage})
 }
 
-func redirToGithub(w http.ResponseWriter, r *http.Request) {
+func indexPage(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		errorPage(w, "route not found")
+		return
+	}
+
 	http.Redirect(w, r, "https://github.com/colduw/xbsky", http.StatusFound)
 }
 
@@ -1269,7 +1275,7 @@ func main() {
 	sMux.HandleFunc("GET /profile/{profileID}/lists/{listID}", getList)
 	sMux.HandleFunc("GET /starter-pack/{profileID}/{packID}", getPack)
 	sMux.HandleFunc("GET /oembed", genOembed)
-	sMux.HandleFunc("GET /", redirToGithub)
+	sMux.HandleFunc("GET /", indexPage)
 
 	manager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
