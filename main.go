@@ -964,6 +964,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var mediaMsg string
 	switch selfData.Type {
 	case bskyEmbedList:
 		switch selfData.CommonEmbeds.Purpose {
@@ -991,6 +992,25 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Not a GIF, Add the external's title & description to the template description
 			selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
+		}
+	case bskyEmbedImages:
+		pnStr := r.PathValue("photoNum")
+		if pnStr != "" {
+			pnValue, atoiErr := strconv.Atoi(pnStr)
+			if atoiErr != nil {
+				errorPage(w, "getPost: Invalid photo number")
+				return
+			}
+
+			if pnValue < 1 {
+				pnValue = 1
+			}
+
+			imgLen := len(selfData.Images)
+			if imgLen > 1 && imgLen >= pnValue {
+				mediaMsg = fmt.Sprintf("Photo %d of %d", pnValue, imgLen)
+				selfData.Images = apiImages{selfData.Images[pnValue-1]}
+			}
 		}
 	}
 
@@ -1068,7 +1088,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent}); execErr != nil {
+	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent, "mediaMsg": mediaMsg}); execErr != nil {
 		http.Error(w, "getPost: Failed to execute template", http.StatusInternalServerError)
 		return
 	}
@@ -1212,6 +1232,11 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 
 			embed.AuthorName = embed.AuthorName + "\n\n" + theDesc
 		}
+
+		mediaMessage := r.URL.Query().Get("mediaMsg")
+		if mediaMessage != "" {
+			embed.ProviderName += fmt.Sprintf("%s | %s", embed.ProviderName, mediaMessage)
+		}
 	case "feed":
 		likes, likesErr := strconv.ParseInt(r.URL.Query().Get("likes"), 10, 64)
 		if likesErr != nil {
@@ -1276,6 +1301,7 @@ func main() {
 	sMux := http.NewServeMux()
 	sMux.HandleFunc("GET /profile/{profileID}", getProfile)
 	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}", getPost)
+	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}/photo/{photoNum}", getPost)
 	sMux.HandleFunc("GET /profile/{profileID}/feed/{feedID}", getFeed)
 	sMux.HandleFunc("GET /profile/{profileID}/lists/{listID}", getList)
 	sMux.HandleFunc("GET /starter-pack/{profileID}/{packID}", getPack)
