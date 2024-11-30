@@ -1088,13 +1088,17 @@ func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
 
 	//nolint:prealloc // No
 	var args []string
+	var avgHeight int
 	for _, k := range images {
 		args = append(args, "-i", k.FullSize)
+		avgHeight += int(k.AspectRatio.Height)
 	}
+
+	avgHeight /= len(images)
 
 	var filterComplex string
 	for i := range images {
-		filterComplex += fmt.Sprintf("[%d:v]scale=-1:600[m%d];", i, i)
+		filterComplex += fmt.Sprintf("[%d:v]scale=-1:%d[m%d];", i, avgHeight, i)
 	}
 
 	for i := range images {
