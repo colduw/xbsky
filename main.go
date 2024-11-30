@@ -739,14 +739,6 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	selfData.PDS = "https://bsky.social"
-
-	for _, k := range plcData.Service {
-		if k.ID == "#atproto_pds" && k.Type == "AtprotoPersonalDataServer" {
-			selfData.PDS = k.Endpoint
-			break
-		}
-	}
-
 	selfData.Record = postData.Thread.Post.Record
 
 	selfData.ReplyCount = postData.Thread.Post.ReplyCount
@@ -991,6 +983,14 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Not a GIF, Add the external's title & description to the template description
 			selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
+		}
+	case bskyEmbedVideo:
+		vidOwnerPLC := resolvePLC(r.Context(), selfData.VideoDID)
+		for _, k := range vidOwnerPLC.Service {
+			if k.ID == "#atproto_pds" && k.Type == "AtprotoPersonalDataServer" {
+				selfData.PDS = k.Endpoint
+				break
+			}
 		}
 	}
 
