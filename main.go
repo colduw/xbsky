@@ -1235,7 +1235,7 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 
 		mediaMessage := r.URL.Query().Get("mediaMsg")
 		if mediaMessage != "" {
-			embed.ProviderName += fmt.Sprintf("%s | %s", embed.ProviderName, mediaMessage)
+			embed.ProviderName = fmt.Sprintf("%s | %s", embed.ProviderName, mediaMessage)
 		}
 	case "feed":
 		likes, likesErr := strconv.ParseInt(r.URL.Query().Get("likes"), 10, 64)
@@ -1281,8 +1281,6 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 }
 
 func errorPage(w http.ResponseWriter, errorMessage string) {
-	w.WriteHeader(http.StatusInternalServerError)
-
 	//nolint:errcheck,gosec,revive // unless there is a divine intervention, this shouldn't fail
 	// if it does, an http.Error is not going to save it.
 	errorTemplate.Execute(w, map[string]string{"errorMsg": errorMessage})
