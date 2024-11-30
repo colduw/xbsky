@@ -964,32 +964,6 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Add description details, could be done in the switch above, but it's easier to find it here.
-	if postData.Thread.Parent != nil {
-		if selfData.Description != "" {
-			selfData.Description += "\n\n"
-		}
-
-		selfData.Description += fmt.Sprintf("💬 Replying to %s (@%s):\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
-	}
-
-	switch postData.Thread.Post.Embed.Type {
-	case bskyEmbedText:
-		if postData.Thread.Post.Embed.Record.Type == bskyEmbedTextQuote {
-			if selfData.Description != "" {
-				selfData.Description += "\n\n"
-			}
-
-			selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
-		}
-	case bskyEmbedQuote:
-		if selfData.Description != "" {
-			selfData.Description += "\n\n"
-		}
-
-		selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
-	}
-
 	switch selfData.Type {
 	case bskyEmbedList:
 		switch selfData.CommonEmbeds.Purpose {
@@ -1018,6 +992,33 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			// Not a GIF, Add the external's title & description to the template description
 			selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
 		}
+	}
+
+	// Add description details, could be done in the switch above, but it's easier to find it here.
+	// Prioritize quoting first, then replies.
+	switch postData.Thread.Post.Embed.Type {
+	case bskyEmbedText:
+		if postData.Thread.Post.Embed.Record.Type == bskyEmbedTextQuote {
+			if selfData.Description != "" {
+				selfData.Description += "\n\n"
+			}
+
+			selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
+		}
+	case bskyEmbedQuote:
+		if selfData.Description != "" {
+			selfData.Description += "\n\n"
+		}
+
+		selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
+	}
+
+	if postData.Thread.Parent != nil {
+		if selfData.Description != "" {
+			selfData.Description += "\n\n"
+		}
+
+		selfData.Description += fmt.Sprintf("💬 Replying to %s (@%s):\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
 	}
 
 	if strings.HasPrefix(r.Host, "mosaic.") {
