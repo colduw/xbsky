@@ -739,14 +739,6 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	selfData.PDS = "https://bsky.social"
-
-	for _, k := range plcData.Service {
-		if k.ID == "#atproto_pds" && k.Type == "AtprotoPersonalDataServer" {
-			selfData.PDS = k.Endpoint
-			break
-		}
-	}
-
 	selfData.Record = postData.Thread.Post.Record
 
 	selfData.ReplyCount = postData.Thread.Post.ReplyCount
@@ -1010,6 +1002,14 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			if imgLen > 1 && imgLen >= pnValue {
 				mediaMsg = fmt.Sprintf("Photo %d of %d", pnValue, imgLen)
 				selfData.Images = apiImages{selfData.Images[pnValue-1]}
+			}
+		}
+	case bskyEmbedVideo:
+		vidOwnerPLC := resolvePLC(r.Context(), selfData.VideoDID)
+		for _, k := range vidOwnerPLC.Service {
+			if k.ID == "#atproto_pds" && k.Type == "AtprotoPersonalDataServer" {
+				selfData.PDS = k.Endpoint
+				break
 			}
 		}
 	}
