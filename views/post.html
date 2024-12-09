@@ -83,7 +83,7 @@
         {{end}}
     {{end}}
 
-    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .data.IsVideo}}&description={{.data.Description | escapePath}}{{end}}">
+    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .data.IsVideo}}&description={{.data.Description | escapePath}}{{end}}&mediaMsg={{.mediaMsg}}">
 </head>
 <body>
     {{if not .isTelegram}}
