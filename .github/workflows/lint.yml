@@ -27,5 +27,11 @@ jobs:
         with:
           version: latest
       
+      - name: Install vulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: Run vulncheck
+        run: govulncheck -show verbose ./...
+      
       - name: Test build
         run: go build main.go
