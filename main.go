@@ -553,6 +553,7 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 	var feed apiFeed
 	if decodeErr := json.NewDecoder(resp.Body).Decode(&feed); decodeErr != nil {
 		errorPage(w, "getFeed: failed to decode response")
+		return
 	}
 
 	if len(plcData.AKA) > 0 {
@@ -609,6 +610,7 @@ func getList(w http.ResponseWriter, r *http.Request) {
 	var list apiList
 	if decodeErr := json.NewDecoder(resp.Body).Decode(&list); decodeErr != nil {
 		errorPage(w, "getList: failed to decode response")
+		return
 	}
 
 	if len(plcData.AKA) > 0 {
@@ -670,6 +672,7 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 	var pack apiPack
 	if decodeErr := json.NewDecoder(resp.Body).Decode(&pack); decodeErr != nil {
 		errorPage(w, "getPack: failed to decode response")
+		return
 	}
 
 	if len(plcData.AKA) > 0 {
@@ -956,6 +959,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var mediaMsg string
 	switch selfData.Type {
 	case bskyEmbedList:
 		switch selfData.CommonEmbeds.Purpose {
@@ -983,6 +987,25 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Not a GIF, Add the external's title & description to the template description
 			selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
+		}
+	case bskyEmbedImages:
+		pnStr := r.PathValue("photoNum")
+		if pnStr != "" {
+			pnValue, atoiErr := strconv.Atoi(pnStr)
+			if atoiErr != nil {
+				errorPage(w, "getPost: Invalid photo number")
+				return
+			}
+
+			if pnValue < 1 {
+				pnValue = 1
+			}
+
+			imgLen := len(selfData.Images)
+			if imgLen > 1 && imgLen >= pnValue {
+				mediaMsg = fmt.Sprintf("Photo %d of %d", pnValue, imgLen)
+				selfData.Images = apiImages{selfData.Images[pnValue-1]}
+			}
 		}
 	case bskyEmbedVideo:
 		vidOwnerPLC := resolvePLC(r.Context(), selfData.VideoDID)
@@ -1068,7 +1091,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent}); execErr != nil {
+	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent, "mediaMsg": mediaMsg}); execErr != nil {
 		http.Error(w, "getPost: Failed to execute template", http.StatusInternalServerError)
 		return
 	}
@@ -1088,13 +1111,17 @@ func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
 
 	//nolint:prealloc // No
 	var args []string
+	var avgHeight int
 	for _, k := range images {
 		args = append(args, "-i", k.FullSize)
+		avgHeight += int(k.AspectRatio.Height)
 	}
+
+	avgHeight /= len(images)
 
 	var filterComplex string
 	for i := range images {
-		filterComplex += fmt.Sprintf("[%d:v]scale=-1:600[m%d];", i, i)
+		filterComplex += fmt.Sprintf("[%d:v]scale=-1:%d[m%d];", i, avgHeight, i)
 	}
 
 	for i := range images {
@@ -1208,6 +1235,11 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 
 			embed.AuthorName = embed.AuthorName + "\n\n" + theDesc
 		}
+
+		mediaMessage := r.URL.Query().Get("mediaMsg")
+		if mediaMessage != "" {
+			embed.ProviderName = fmt.Sprintf("%s | %s", embed.ProviderName, mediaMessage)
+		}
 	case "feed":
 		likes, likesErr := strconv.ParseInt(r.URL.Query().Get("likes"), 10, 64)
 		if likesErr != nil {
@@ -1252,13 +1284,17 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 }
 
 func errorPage(w http.ResponseWriter, errorMessage string) {
-	if execErr := errorTemplate.Execute(w, map[string]string{"errorMsg": errorMessage}); execErr != nil {
-		http.Error(w, "Failed to execute template", http.StatusInternalServerError)
-		return
-	}
+	//nolint:errcheck,gosec,revive // unless there is a divine intervention, this shouldn't fail
+	// if it does, an http.Error is not going to save it.
+	errorTemplate.Execute(w, map[string]string{"errorMsg": errorMessage})
 }
 
-func redirToGithub(w http.ResponseWriter, r *http.Request) {
+func indexPage(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		errorPage(w, "route not found")
+		return
+	}
+
 	http.Redirect(w, r, "https://github.com/colduw/xbsky", http.StatusFound)
 }
 
@@ -1266,11 +1302,12 @@ func main() {
 	sMux := http.NewServeMux()
 	sMux.HandleFunc("GET /profile/{profileID}", getProfile)
 	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}", getPost)
+	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}/photo/{photoNum}", getPost)
 	sMux.HandleFunc("GET /profile/{profileID}/feed/{feedID}", getFeed)
 	sMux.HandleFunc("GET /profile/{profileID}/lists/{listID}", getList)
 	sMux.HandleFunc("GET /starter-pack/{profileID}/{packID}", getPack)
 	sMux.HandleFunc("GET /oembed", genOembed)
-	sMux.HandleFunc("GET /", redirToGithub)
+	sMux.HandleFunc("GET /", indexPage)
 
 	manager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,

@@ -48,7 +48,7 @@ body:
       options:
         - label: The post was not deleted, and still exists
           required: true
-        - label: The authors handle was not changed, and is still the same
+        - label: The author's handle was not changed, and is still the same
           required: true
   - type: textarea
     id: screenshots
