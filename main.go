@@ -553,6 +553,7 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 	var feed apiFeed
 	if decodeErr := json.NewDecoder(resp.Body).Decode(&feed); decodeErr != nil {
 		errorPage(w, "getFeed: failed to decode response")
+		return
 	}
 
 	if len(plcData.AKA) > 0 {
@@ -609,6 +610,7 @@ func getList(w http.ResponseWriter, r *http.Request) {
 	var list apiList
 	if decodeErr := json.NewDecoder(resp.Body).Decode(&list); decodeErr != nil {
 		errorPage(w, "getList: failed to decode response")
+		return
 	}
 
 	if len(plcData.AKA) > 0 {
@@ -670,6 +672,7 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 	var pack apiPack
 	if decodeErr := json.NewDecoder(resp.Body).Decode(&pack); decodeErr != nil {
 		errorPage(w, "getPack: failed to decode response")
+		return
 	}
 
 	if len(plcData.AKA) > 0 {
