@@ -12,6 +12,12 @@ Add `raw` before `xbsky.app`, so it becomes `raw.xbsky.app`
 
 Add `mosaic` before `xbsky.app`, so it becomes `mosaic.xbsky.app`
 
+### A post has multiple images, but you only want to select a specific one?
+
+Add `/photo/(desired image number)` after the record key, so it becomes `xbsky.app/profile/handle.bsky.social/post/recordkey/photo/(desired image number)`
+
+<sup>ie: <code>xbsky.app/profile/handle.bsky.social/post/recordkey/photo/1</code> to select the first image</sup>
+
 # Gallery
 
 <p>A text only post</p>
