@@ -7,7 +7,7 @@ body:
     id: bug-desc
     attributes:
       label: Describe the bug
-      description: A brief description of what the bug is
+      placeholder: A brief description of what the bug is
     validations:
         required: true
     
@@ -15,7 +15,7 @@ body:
     id: bug-urls
     attributes:
       label: Post(s) / URL(s) that you encountered this bug at
-      description: A list of urls to posts that have this bug
+      placeholder: A list of urls to posts that have this bug
     validations:
       required: true
       
