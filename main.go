@@ -782,7 +782,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		case bskyEmbedVideo:
 			selfData.Type = bskyEmbedVideo
 			selfData.VideoCID = postData.Thread.Post.Embed.Media.CID
-			selfData.VideoDID = postData.Thread.Post.Embed.Record.Record.Author.DID
+			selfData.VideoDID = postData.Thread.Post.Author.DID
 			selfData.AspectRatio = postData.Thread.Post.Embed.Media.AspectRatio
 			selfData.Thumbnail = postData.Thread.Post.Embed.Media.Thumbnail
 			selfData.IsVideo = true
@@ -916,7 +916,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				case bskyEmbedVideo:
 					selfData.Type = bskyEmbedVideo
 					selfData.VideoCID = postData.Thread.Parent.Post.Embed.Media.CID
-					selfData.VideoDID = postData.Thread.Parent.Post.Embed.Record.Record.Author.DID
+					selfData.VideoDID = postData.Thread.Parent.Post.Author.DID
 					selfData.AspectRatio = postData.Thread.Parent.Post.Embed.Media.AspectRatio
 					selfData.Thumbnail = postData.Thread.Parent.Post.Embed.Media.Thumbnail
 					selfData.IsVideo = true
