@@ -54,7 +54,7 @@ body:
     id: screenshots
     attributes:
       label: Additional details / screenshot(s)
-      description: |
+      placeholder: |
         If you can provide a visual example of the bug, it'd help, but is not a requirement,
         or if you have any additional details, put them here
 
