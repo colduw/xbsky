@@ -1,3 +1,4 @@
+# Config for golangci-lint v1.63.4
 output:
   sort-results: true
 
@@ -165,6 +166,7 @@ linters:
     - errorlint
     - exhaustive
     # - exhaustruct
+    - exptostd
     - fatcontext
     - forcetypeassert
     - ginkgolinter
@@ -185,6 +187,7 @@ linters:
     - gosec
     - gosmopolitan
     - grouper
+    - iface
     - importas
     - inamedparam
     - interfacebloat
@@ -200,6 +203,7 @@ linters:
     - nakedret
     - nestif
     - nilerr
+    - nilnesserr
     - nilnil
     - noctx
     - nolintlint
@@ -211,6 +215,7 @@ linters:
     - promlinter
     - protogetter
     - reassign
+    - recvcheck
     - revive
     - rowserrcheck
     - sloglint
@@ -227,9 +232,9 @@ linters:
     - unconvert
     - unparam
     - usestdlibvars
+    - usetesting
     - wastedassign
     - whitespace
     - wrapcheck
     # - wsl
     - zerologlint
-    - exportloopref
