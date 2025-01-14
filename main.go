@@ -982,6 +982,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	var mediaMsg string
 	switch selfData.Type {
 	case bskyEmbedList:
+		if selfData.CommonEmbeds.Creator.DisplayName == "" {
+			selfData.CommonEmbeds.Creator.DisplayName = selfData.CommonEmbeds.Creator.Handle
+		}
+
 		switch selfData.CommonEmbeds.Purpose {
 		case modList:
 			selfData.Description += fmt.Sprintf("\n\n%s\n🚫 A moderation list by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
@@ -989,8 +993,16 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			selfData.Description += fmt.Sprintf("\n\n%s\n👥 A curator list by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
 		}
 	case bskyEmbedPack:
+		if selfData.CommonEmbeds.Creator.DisplayName == "" {
+			selfData.CommonEmbeds.Creator.DisplayName = selfData.CommonEmbeds.Creator.Handle
+		}
+
 		selfData.Description += fmt.Sprintf("\n\n%s\n📦 A starter pack by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
 	case bskyEmbedFeed:
+		if selfData.CommonEmbeds.Creator.DisplayName == "" {
+			selfData.CommonEmbeds.Creator.DisplayName = selfData.CommonEmbeds.Creator.Handle
+		}
+
 		selfData.Description += fmt.Sprintf("\n\n%s\n📡 A feed by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
 	case bskyEmbedExternal:
 		parsedURL, parseErr := url.Parse(selfData.External.URI)
@@ -1046,11 +1058,19 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				selfData.Description += "\n\n"
 			}
 
+			if postData.Thread.Post.Embed.Record.Author.DisplayName == "" {
+				postData.Thread.Post.Embed.Record.Author.DisplayName = postData.Thread.Post.Embed.Record.Author.Handle
+			}
+
 			selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
 		}
 	case bskyEmbedQuote:
 		if selfData.Description != "" {
 			selfData.Description += "\n\n"
+		}
+
+		if postData.Thread.Post.Embed.Record.Record.Author.DisplayName == "" {
+			postData.Thread.Post.Embed.Record.Record.Author.DisplayName = postData.Thread.Post.Embed.Record.Record.Author.Handle
 		}
 
 		selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
@@ -1059,6 +1079,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	if postData.Thread.Parent != nil {
 		if selfData.Description != "" {
 			selfData.Description += "\n\n"
+		}
+
+		if postData.Thread.Parent.Post.Author.DisplayName == "" {
+			postData.Thread.Parent.Post.Author.DisplayName = postData.Thread.Parent.Post.Author.Handle
 		}
 
 		selfData.Description += fmt.Sprintf("💬 Replying to %s (@%s):\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
