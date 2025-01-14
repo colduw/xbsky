@@ -252,9 +252,10 @@ type (
 
 		External apiExternal `json:"external"`
 
-		PDS      string `json:"pds"`
-		VideoCID string `json:"videoCID"`
-		VideoDID string `json:"videoDID"`
+		PDS         string `json:"pds"`
+		VideoCID    string `json:"videoCID"`
+		VideoDID    string `json:"videoDID"`
+		VideoHelper string `json:"videoURI"`
 
 		Description string `json:"description"`
 		StatsForTG  string `json:"statsForTG"`
@@ -1127,6 +1128,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 	if strings.HasPrefix(r.Host, "api.") {
 		w.Header().Set("Content-Type", "application/json")
+
+		if selfData.Type == bskyEmbedVideo {
+			selfData.VideoHelper = fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.PDS, selfData.VideoCID, selfData.VideoDID)
+		}
 
 		//nolint:errcheck,gosec,revive,errchkjson // see errorPage
 		json.NewEncoder(w).Encode(&selfData)
