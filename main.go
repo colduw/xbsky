@@ -94,6 +94,13 @@ type (
 		Avatar      string `json:"avatar"`
 	}
 
+	apiExternal struct {
+		URI         string `json:"uri"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Thumb       string `json:"thumb"`
+	}
+
 	apiPost struct {
 		Author apiAuthor `json:"author"`
 
@@ -111,12 +118,7 @@ type (
 			// they'll be here
 			Media mediaData `json:"media"`
 
-			External struct {
-				URI         string `json:"uri"`
-				Title       string `json:"title"`
-				Description string `json:"description"`
-				Thumb       string `json:"thumb"`
-			} `json:"external"`
+			External apiExternal `json:"external"`
 
 			// This is a text quote
 			Record struct {
@@ -205,12 +207,7 @@ type (
 
 		Images apiImages `json:"images"`
 
-		External struct {
-			URI         string `json:"uri"`
-			Title       string `json:"title"`
-			Description string `json:"description"`
-			Thumb       string `json:"thumb"`
-		} `json:"external"`
+		External apiExternal `json:"external"`
 
 		CID         string         `json:"cid"`
 		Thumbnail   string         `json:"thumbnail"`
@@ -242,49 +239,44 @@ type (
 
 	// To reduce redundancy in the template
 	ownData struct {
-		Type string
+		Type string `json:"type"`
 
-		Author apiAuthor
+		Author apiAuthor `json:"author"`
 
 		Record struct {
 			Text      string `json:"text"`
 			CreatedAt string `json:"createdAt"`
-		}
+		} `json:"record"`
 
-		Images apiImages
+		Images apiImages `json:"images"`
 
-		External struct {
-			URI         string `json:"uri"`
-			Title       string `json:"title"`
-			Description string `json:"description"`
-			Thumb       string `json:"thumb"`
-		}
+		External apiExternal `json:"external"`
 
-		PDS      string
-		VideoCID string
-		VideoDID string
+		PDS      string `json:"pds"`
+		VideoCID string `json:"videoCID"`
+		VideoDID string `json:"videoDID"`
 
-		Description string
-		StatsForTG  string
+		Description string `json:"description"`
+		StatsForTG  string `json:"statsForTG"`
 
-		Thumbnail   string
-		AspectRatio apiAspectRatio
+		Thumbnail   string         `json:"thumbnail"`
+		AspectRatio apiAspectRatio `json:"aspectRatio"`
 
-		ReplyCount  int64
-		RepostCount int64
-		LikeCount   int64
-		QuoteCount  int64
+		ReplyCount  int64 `json:"replyCount"`
+		RepostCount int64 `json:"repostCount"`
+		LikeCount   int64 `json:"likeCount"`
+		QuoteCount  int64 `json:"quoteCount"`
 
-		IsVideo bool
-		IsGif   bool
+		IsVideo bool `json:"isVideo"`
+		IsGif   bool `json:"isGif"`
 
 		CommonEmbeds struct {
-			Purpose     string
-			Name        string
-			Avatar      string
-			Description string
-			Creator     apiAuthor
-		}
+			Purpose     string    `json:"purpose"`
+			Name        string    `json:"name"`
+			Avatar      string    `json:"avatar"`
+			Description string    `json:"description"`
+			Creator     apiAuthor `json:"creator"`
+		} `json:"commonEmbeds"`
 	}
 )
 
@@ -1133,6 +1125,15 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if strings.HasPrefix(r.Host, "api.") {
+		w.Header().Set("Content-Type", "application/json")
+
+		//nolint:errcheck,gosec,revive,errchkjson // see errorPage
+		json.NewEncoder(w).Encode(&selfData)
+
+		return
+	}
+
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
 	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent, "mediaMsg": mediaMsg}); execErr != nil {
@@ -1355,7 +1356,7 @@ func main() {
 
 	manager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("xbsky.app", "raw.xbsky.app", "mosaic.xbsky.app"),
+		HostPolicy: autocert.HostWhitelist("xbsky.app", "raw.xbsky.app", "mosaic.xbsky.app", "api.xbsky.app"),
 		Cache:      autocert.DirCache("certs/"),
 	}
 
