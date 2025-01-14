@@ -503,6 +503,10 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 
 	if len(plcData.AKA) > 0 {
 		profile.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+
+		if profile.DisplayName == "" {
+			profile.DisplayName = profile.Handle
+		}
 	}
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
@@ -558,6 +562,10 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 
 	if len(plcData.AKA) > 0 {
 		feed.View.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+
+		if feed.View.Creator.DisplayName == "" {
+			feed.View.Creator.DisplayName = feed.View.Creator.Handle
+		}
 	}
 
 	feed.View.Description = fmt.Sprintf("📡 A feed by %s (@%s)\n\n%s", feed.View.Creator.DisplayName, feed.View.Creator.Handle, feed.View.Description)
@@ -615,6 +623,10 @@ func getList(w http.ResponseWriter, r *http.Request) {
 
 	if len(plcData.AKA) > 0 {
 		list.List.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+
+		if list.List.Creator.DisplayName == "" {
+			list.List.Creator.DisplayName = list.List.Creator.Handle
+		}
 	}
 
 	switch list.List.Purpose {
@@ -677,6 +689,10 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 
 	if len(plcData.AKA) > 0 {
 		pack.StarterPack.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+
+		if pack.StarterPack.Creator.DisplayName == "" {
+			pack.StarterPack.Creator.DisplayName = pack.StarterPack.Creator.Handle
+		}
 	}
 
 	pack.StarterPack.Record.Description = fmt.Sprintf("📦 A starter pack by %s (@%s)\n\n%s", pack.StarterPack.Creator.DisplayName, pack.StarterPack.Creator.Handle, pack.StarterPack.Record.Description)
@@ -739,6 +755,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	selfData.Author = postData.Thread.Post.Author
 	if len(plcData.AKA) > 0 {
 		selfData.Author.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+
+		if selfData.Author.DisplayName == "" {
+			selfData.Author.DisplayName = selfData.Author.Handle
+		}
 	}
 
 	selfData.PDS = "https://bsky.social"
