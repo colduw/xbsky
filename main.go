@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -475,7 +476,10 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, respErr := timeoutClient.Do(req)
-	if respErr != nil {
+	if errors.Is(respErr, context.DeadlineExceeded) {
+		errorPage(w, "getProfile: Bluesky took too long to respond (timeout exceeded)")
+		return
+	} else if respErr != nil {
 		errorPage(w, "getProfile: Failed to do request")
 		return
 	}
@@ -534,7 +538,10 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, respErr := timeoutClient.Do(req)
-	if respErr != nil {
+	if errors.Is(respErr, context.DeadlineExceeded) {
+		errorPage(w, "getFeed: Bluesky took too long to respond (timeout exceeded)")
+		return
+	} else if respErr != nil {
 		errorPage(w, "getFeed: failed to do request")
 		return
 	}
@@ -595,7 +602,10 @@ func getList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, respErr := timeoutClient.Do(req)
-	if respErr != nil {
+	if errors.Is(respErr, context.DeadlineExceeded) {
+		errorPage(w, "getList: Bluesky took too long to respond (timeout exceeded)")
+		return
+	} else if respErr != nil {
 		errorPage(w, "getList: failed to do request")
 		return
 	}
@@ -661,7 +671,10 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, respErr := timeoutClient.Do(req)
-	if respErr != nil {
+	if errors.Is(respErr, context.DeadlineExceeded) {
+		errorPage(w, "getPack: Bluesky took too long to respond (timeout exceeded)")
+		return
+	} else if respErr != nil {
 		errorPage(w, "getPack: failed to do request")
 		return
 	}
@@ -722,7 +735,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	postResp, postRespErr := timeoutClient.Do(postReq)
-	if postRespErr != nil {
+	if errors.Is(postRespErr, context.DeadlineExceeded) {
+		errorPage(w, "getPost: Bluesky took too long to respond (timeout exceeded)")
+		return
+	} else if postRespErr != nil {
 		errorPage(w, "getPost: Failed to do request")
 		return
 	}
