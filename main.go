@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
@@ -94,6 +95,13 @@ type (
 		Avatar      string `json:"avatar"`
 	}
 
+	apiExternal struct {
+		URI         string `json:"uri"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Thumb       string `json:"thumb"`
+	}
+
 	apiPost struct {
 		Author apiAuthor `json:"author"`
 
@@ -111,12 +119,7 @@ type (
 			// they'll be here
 			Media mediaData `json:"media"`
 
-			External struct {
-				URI         string `json:"uri"`
-				Title       string `json:"title"`
-				Description string `json:"description"`
-				Thumb       string `json:"thumb"`
-			} `json:"external"`
+			External apiExternal `json:"external"`
 
 			// This is a text quote
 			Record struct {
@@ -205,12 +208,7 @@ type (
 
 		Images apiImages `json:"images"`
 
-		External struct {
-			URI         string `json:"uri"`
-			Title       string `json:"title"`
-			Description string `json:"description"`
-			Thumb       string `json:"thumb"`
-		} `json:"external"`
+		External apiExternal `json:"external"`
 
 		CID         string         `json:"cid"`
 		Thumbnail   string         `json:"thumbnail"`
@@ -242,49 +240,45 @@ type (
 
 	// To reduce redundancy in the template
 	ownData struct {
-		Type string
+		Type string `json:"type"`
 
-		Author apiAuthor
+		Author apiAuthor `json:"author"`
 
 		Record struct {
 			Text      string `json:"text"`
 			CreatedAt string `json:"createdAt"`
-		}
+		} `json:"record"`
 
-		Images apiImages
+		Images apiImages `json:"images"`
 
-		External struct {
-			URI         string `json:"uri"`
-			Title       string `json:"title"`
-			Description string `json:"description"`
-			Thumb       string `json:"thumb"`
-		}
+		External apiExternal `json:"external"`
 
-		PDS      string
-		VideoCID string
-		VideoDID string
+		PDS         string `json:"pds"`
+		VideoCID    string `json:"videoCID"`
+		VideoDID    string `json:"videoDID"`
+		VideoHelper string `json:"videoURI"`
 
-		Description string
-		StatsForTG  string
+		Description string `json:"description"`
+		StatsForTG  string `json:"statsForTG"`
 
-		Thumbnail   string
-		AspectRatio apiAspectRatio
+		Thumbnail   string         `json:"thumbnail"`
+		AspectRatio apiAspectRatio `json:"aspectRatio"`
 
-		ReplyCount  int64
-		RepostCount int64
-		LikeCount   int64
-		QuoteCount  int64
+		ReplyCount  int64 `json:"replyCount"`
+		RepostCount int64 `json:"repostCount"`
+		LikeCount   int64 `json:"likeCount"`
+		QuoteCount  int64 `json:"quoteCount"`
 
-		IsVideo bool
-		IsGif   bool
+		IsVideo bool `json:"isVideo"`
+		IsGif   bool `json:"isGif"`
 
 		CommonEmbeds struct {
-			Purpose     string
-			Name        string
-			Avatar      string
-			Description string
-			Creator     apiAuthor
-		}
+			Purpose     string    `json:"purpose"`
+			Name        string    `json:"name"`
+			Avatar      string    `json:"avatar"`
+			Description string    `json:"description"`
+			Creator     apiAuthor `json:"creator"`
+		} `json:"commonEmbeds"`
 	}
 )
 
@@ -482,7 +476,10 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, respErr := timeoutClient.Do(req)
-	if respErr != nil {
+	if errors.Is(respErr, context.DeadlineExceeded) {
+		errorPage(w, "getProfile: Bluesky took too long to respond (timeout exceeded)")
+		return
+	} else if respErr != nil {
 		errorPage(w, "getProfile: Failed to do request")
 		return
 	}
@@ -503,6 +500,10 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 
 	if len(plcData.AKA) > 0 {
 		profile.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+
+		if profile.DisplayName == "" {
+			profile.DisplayName = profile.Handle
+		}
 	}
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
@@ -537,7 +538,10 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, respErr := timeoutClient.Do(req)
-	if respErr != nil {
+	if errors.Is(respErr, context.DeadlineExceeded) {
+		errorPage(w, "getFeed: Bluesky took too long to respond (timeout exceeded)")
+		return
+	} else if respErr != nil {
 		errorPage(w, "getFeed: failed to do request")
 		return
 	}
@@ -558,6 +562,10 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 
 	if len(plcData.AKA) > 0 {
 		feed.View.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+
+		if feed.View.Creator.DisplayName == "" {
+			feed.View.Creator.DisplayName = feed.View.Creator.Handle
+		}
 	}
 
 	feed.View.Description = fmt.Sprintf("📡 A feed by %s (@%s)\n\n%s", feed.View.Creator.DisplayName, feed.View.Creator.Handle, feed.View.Description)
@@ -594,7 +602,10 @@ func getList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, respErr := timeoutClient.Do(req)
-	if respErr != nil {
+	if errors.Is(respErr, context.DeadlineExceeded) {
+		errorPage(w, "getList: Bluesky took too long to respond (timeout exceeded)")
+		return
+	} else if respErr != nil {
 		errorPage(w, "getList: failed to do request")
 		return
 	}
@@ -615,6 +626,10 @@ func getList(w http.ResponseWriter, r *http.Request) {
 
 	if len(plcData.AKA) > 0 {
 		list.List.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+
+		if list.List.Creator.DisplayName == "" {
+			list.List.Creator.DisplayName = list.List.Creator.Handle
+		}
 	}
 
 	switch list.List.Purpose {
@@ -656,7 +671,10 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp, respErr := timeoutClient.Do(req)
-	if respErr != nil {
+	if errors.Is(respErr, context.DeadlineExceeded) {
+		errorPage(w, "getPack: Bluesky took too long to respond (timeout exceeded)")
+		return
+	} else if respErr != nil {
 		errorPage(w, "getPack: failed to do request")
 		return
 	}
@@ -677,6 +695,10 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 
 	if len(plcData.AKA) > 0 {
 		pack.StarterPack.Creator.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+
+		if pack.StarterPack.Creator.DisplayName == "" {
+			pack.StarterPack.Creator.DisplayName = pack.StarterPack.Creator.Handle
+		}
 	}
 
 	pack.StarterPack.Record.Description = fmt.Sprintf("📦 A starter pack by %s (@%s)\n\n%s", pack.StarterPack.Creator.DisplayName, pack.StarterPack.Creator.Handle, pack.StarterPack.Record.Description)
@@ -713,7 +735,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	postResp, postRespErr := timeoutClient.Do(postReq)
-	if postRespErr != nil {
+	if errors.Is(postRespErr, context.DeadlineExceeded) {
+		errorPage(w, "getPost: Bluesky took too long to respond (timeout exceeded)")
+		return
+	} else if postRespErr != nil {
 		errorPage(w, "getPost: Failed to do request")
 		return
 	}
@@ -739,6 +764,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	selfData.Author = postData.Thread.Post.Author
 	if len(plcData.AKA) > 0 {
 		selfData.Author.Handle = strings.TrimPrefix(plcData.AKA[0], "at://")
+
+		if selfData.Author.DisplayName == "" {
+			selfData.Author.DisplayName = selfData.Author.Handle
+		}
 	}
 
 	selfData.PDS = "https://bsky.social"
@@ -962,6 +991,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	var mediaMsg string
 	switch selfData.Type {
 	case bskyEmbedList:
+		if selfData.CommonEmbeds.Creator.DisplayName == "" {
+			selfData.CommonEmbeds.Creator.DisplayName = selfData.CommonEmbeds.Creator.Handle
+		}
+
 		switch selfData.CommonEmbeds.Purpose {
 		case modList:
 			selfData.Description += fmt.Sprintf("\n\n%s\n🚫 A moderation list by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
@@ -969,8 +1002,16 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			selfData.Description += fmt.Sprintf("\n\n%s\n👥 A curator list by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
 		}
 	case bskyEmbedPack:
+		if selfData.CommonEmbeds.Creator.DisplayName == "" {
+			selfData.CommonEmbeds.Creator.DisplayName = selfData.CommonEmbeds.Creator.Handle
+		}
+
 		selfData.Description += fmt.Sprintf("\n\n%s\n📦 A starter pack by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
 	case bskyEmbedFeed:
+		if selfData.CommonEmbeds.Creator.DisplayName == "" {
+			selfData.CommonEmbeds.Creator.DisplayName = selfData.CommonEmbeds.Creator.Handle
+		}
+
 		selfData.Description += fmt.Sprintf("\n\n%s\n📡 A feed by %s (@%s)\n\n%s", selfData.CommonEmbeds.Name, selfData.CommonEmbeds.Creator.DisplayName, selfData.CommonEmbeds.Creator.Handle, selfData.CommonEmbeds.Description)
 	case bskyEmbedExternal:
 		parsedURL, parseErr := url.Parse(selfData.External.URI)
@@ -1026,11 +1067,19 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				selfData.Description += "\n\n"
 			}
 
+			if postData.Thread.Post.Embed.Record.Author.DisplayName == "" {
+				postData.Thread.Post.Embed.Record.Author.DisplayName = postData.Thread.Post.Embed.Record.Author.Handle
+			}
+
 			selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
 		}
 	case bskyEmbedQuote:
 		if selfData.Description != "" {
 			selfData.Description += "\n\n"
+		}
+
+		if postData.Thread.Post.Embed.Record.Record.Author.DisplayName == "" {
+			postData.Thread.Post.Embed.Record.Record.Author.DisplayName = postData.Thread.Post.Embed.Record.Record.Author.Handle
 		}
 
 		selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
@@ -1039,6 +1088,10 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	if postData.Thread.Parent != nil {
 		if selfData.Description != "" {
 			selfData.Description += "\n\n"
+		}
+
+		if postData.Thread.Parent.Post.Author.DisplayName == "" {
+			postData.Thread.Parent.Post.Author.DisplayName = postData.Thread.Parent.Post.Author.Handle
 		}
 
 		selfData.Description += fmt.Sprintf("💬 Replying to %s (@%s):\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
@@ -1087,6 +1140,19 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			errorPage(w, "getPost: Invalid type")
 			return
 		}
+	}
+
+	if strings.HasPrefix(r.Host, "api.") {
+		w.Header().Set("Content-Type", "application/json")
+
+		if selfData.Type == bskyEmbedVideo {
+			selfData.VideoHelper = fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.PDS, selfData.VideoCID, selfData.VideoDID)
+		}
+
+		//nolint:errcheck,gosec,revive,errchkjson // see errorPage
+		json.NewEncoder(w).Encode(&selfData)
+
+		return
 	}
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
@@ -1311,7 +1377,7 @@ func main() {
 
 	manager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("xbsky.app", "raw.xbsky.app", "mosaic.xbsky.app"),
+		HostPolicy: autocert.HostWhitelist("xbsky.app", "raw.xbsky.app", "mosaic.xbsky.app", "api.xbsky.app"),
 		Cache:      autocert.DirCache("certs/"),
 	}
 
