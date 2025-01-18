@@ -18,6 +18,10 @@ Add `/photo/(desired image number)` after the record key, so it becomes `xbsky.a
 
 <sup>ie: <code>xbsky.app/profile/handle.bsky.social/post/recordkey/photo/1</code> to select the first image</sup>
 
+### For developers:
+
+Use `api.xbsky.app` to get a [parsed struct](https://github.com/colduw/xbsky/blob/main/main.go#L242) about the post's information. Responses will have a `Content-Type: application/json`
+
 # Gallery
 
 <p>A text only post</p>
