@@ -779,7 +779,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	selfData.QuoteCount = postData.Thread.Post.QuoteCount
 
 	selfData.Description = selfData.Record.Text
-	selfData.StatsForTG = fmt.Sprintf("💬 %d   🔁 %d   ❤️ %d   📝 %d", postData.Thread.Post.ReplyCount, postData.Thread.Post.RepostCount, postData.Thread.Post.LikeCount, postData.Thread.Post.QuoteCount)
+	selfData.StatsForTG = fmt.Sprintf("💬 %s   🔁 %s   ❤️ %s   📝 %s", toNotation(postData.Thread.Post.ReplyCount), toNotation(postData.Thread.Post.RepostCount), toNotation(postData.Thread.Post.LikeCount), toNotation(postData.Thread.Post.QuoteCount))
 
 	// This is to reduce redundancy in the templates
 	switch postData.Thread.Post.Embed.Type {
@@ -1243,7 +1243,7 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		embed.AuthorName = fmt.Sprintf("👥 %d Followers - 🌐 %d Following - ✍️ %d Posts", followers, follows, posts)
+		embed.AuthorName = fmt.Sprintf("👥 %s Followers - 🌐 %s Following - ✍️ %s Posts", toNotation(followers), toNotation(follows), toNotation(posts))
 
 		if labeler {
 			embed.AuthorName += " - 🏷️ Labeler"
@@ -1273,7 +1273,7 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		embed.AuthorName = fmt.Sprintf("💬 %d   🔁 %d   ❤️ %d   📝 %d", replies, reposts, likes, quotes)
+		embed.AuthorName = fmt.Sprintf("💬 %s   🔁 %s   ❤️ %s   📝 %s", toNotation(replies), toNotation(reposts), toNotation(likes), toNotation(quotes))
 
 		theDesc := r.URL.Query().Get("description")
 		if theDesc != "" {
@@ -1325,7 +1325,7 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		embed.AuthorName = fmt.Sprintf("❤️ %d Likes", likes)
+		embed.AuthorName = fmt.Sprintf("❤️ %s Likes", toNotation(likes))
 
 		if online {
 			embed.AuthorName += " - ✅ Online"
@@ -1408,5 +1408,19 @@ func main() {
 
 	if httpsListenErr := httpsServer.ListenAndServeTLS("", ""); httpsListenErr != nil {
 		panic(httpsListenErr)
+	}
+}
+
+func toNotation(number int64) string {
+	floatNum := float64(number)
+	switch {
+	case (floatNum / 1e9) >= 1:
+		return fmt.Sprintf("%0.1fB", floatNum/1e9)
+	case (floatNum / 1e6) >= 1:
+		return fmt.Sprintf("%0.1fM", floatNum/1e6)
+	case (floatNum / 1e3) >= 1:
+		return fmt.Sprintf("%0.1fK", floatNum/1e3)
+	default:
+		return strconv.FormatInt(number, 10)
 	}
 }
