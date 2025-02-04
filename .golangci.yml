@@ -29,6 +29,7 @@ linters-settings:
     check-blank: true
     disable-default-exclusions: true
     exclude-functions:
+      - '(net/http.ResponseWriter).Write' # This shouldn't fail
       - '(io.ReadCloser).Close' # To have the same effect as EXC0001, for http response body closes. This shouldn't fail
       - '(*html/template.Template).Execute' # This shouldn't fail
 
@@ -125,7 +126,7 @@ linters-settings:
       - name: max-control-nesting
         disabled: true
       - name: unhandled-error
-        arguments: ['html/template.Template.Execute']
+        arguments: ['html/template.Template.Execute', 'net/http.ResponseWriter.Write']
 
   tagalign:
     strict: true

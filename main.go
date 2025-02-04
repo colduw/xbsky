@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -1123,15 +1124,18 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.HasPrefix(r.Host, "api.") {
-		w.Header().Set("Content-Type", "application/json")
-
 		if selfData.Type == bskyEmbedVideo {
 			selfData.VideoHelper = fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.PDS, selfData.VideoCID, selfData.VideoDID)
 		}
 
-		//nolint:errcheck,revive,errchkjson // temporarily
-		json.NewEncoder(w).Encode(&selfData)
+		var buf bytes.Buffer
+		if encodeErr := json.NewEncoder(&buf).Encode(map[string]any{"originalData": postData, "parsedData": selfData}); encodeErr != nil {
+			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+			return
+		}
 
+		w.Header().Set("Content-Type", "application/json")
+		w.Write(buf.Bytes())
 		return
 	}
 
