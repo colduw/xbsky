@@ -329,7 +329,6 @@ func resolveHandleAPI(ctx context.Context, handle string) (string, bool) {
 		return handle, false
 	}
 
-	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -376,7 +375,6 @@ func resolveHandleHTTP(ctx context.Context, handle string) (string, bool) {
 		return handle, false
 	}
 
-	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -441,7 +439,6 @@ func resolvePLC(ctx context.Context, did string) plcDirectory {
 		return plcDirectory{}
 	}
 
-	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -484,7 +481,6 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -508,10 +504,7 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if execErr := profileTemplate.Execute(w, map[string]any{"profile": profile, "isTelegram": isTelegramAgent}); execErr != nil {
-		http.Error(w, "getProfile: Failed to execute template", http.StatusInternalServerError)
-		return
-	}
+	profileTemplate.Execute(w, map[string]any{"profile": profile, "isTelegram": isTelegramAgent})
 }
 
 func getFeed(w http.ResponseWriter, r *http.Request) {
@@ -546,7 +539,6 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -572,10 +564,7 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if execErr := feedTemplate.Execute(w, map[string]any{"feed": feed, "feedID": feedID, "isTelegram": isTelegramAgent}); execErr != nil {
-		http.Error(w, "getFeed: failed to execute template", http.StatusInternalServerError)
-		return
-	}
+	feedTemplate.Execute(w, map[string]any{"feed": feed, "feedID": feedID, "isTelegram": isTelegramAgent})
 }
 
 func getList(w http.ResponseWriter, r *http.Request) {
@@ -610,7 +599,6 @@ func getList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -641,10 +629,7 @@ func getList(w http.ResponseWriter, r *http.Request) {
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if execErr := listTemplate.Execute(w, map[string]any{"list": list.List, "listID": listID, "isTelegram": isTelegramAgent}); execErr != nil {
-		http.Error(w, "getList: failed to execute template", http.StatusInternalServerError)
-		return
-	}
+	listTemplate.Execute(w, map[string]any{"list": list.List, "listID": listID, "isTelegram": isTelegramAgent})
 }
 
 func getPack(w http.ResponseWriter, r *http.Request) {
@@ -679,7 +664,6 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
@@ -705,10 +689,7 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if execErr := packTemplate.Execute(w, map[string]any{"pack": pack.StarterPack, "packID": packID, "isTelegram": isTelegramAgent}); execErr != nil {
-		http.Error(w, "getPack: failed to execute template", http.StatusInternalServerError)
-		return
-	}
+	packTemplate.Execute(w, map[string]any{"pack": pack.StarterPack, "packID": packID, "isTelegram": isTelegramAgent})
 }
 
 func getPost(w http.ResponseWriter, r *http.Request) {
@@ -743,7 +724,6 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//nolint:errcheck // this should not fail, but even if it did, at most, we'd just log that it failed
 	defer postResp.Body.Close()
 
 	if postResp.StatusCode != http.StatusOK {
@@ -1149,7 +1129,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			selfData.VideoHelper = fmt.Sprintf("%s/xrpc/com.atproto.sync.getBlob?cid=%s&did=%s", selfData.PDS, selfData.VideoCID, selfData.VideoDID)
 		}
 
-		//nolint:errcheck,gosec,revive,errchkjson // see errorPage
+		//nolint:errcheck,revive,errchkjson // temporarily
 		json.NewEncoder(w).Encode(&selfData)
 
 		return
@@ -1157,10 +1137,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	if execErr := postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent, "mediaMsg": mediaMsg}); execErr != nil {
-		http.Error(w, "getPost: Failed to execute template", http.StatusInternalServerError)
-		return
-	}
+	postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent, "mediaMsg": mediaMsg})
 }
 
 func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
@@ -1350,8 +1327,6 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 }
 
 func errorPage(w http.ResponseWriter, errorMessage string) {
-	//nolint:errcheck,gosec,revive // unless there is a divine intervention, this shouldn't fail
-	// if it does, an http.Error is not going to save it.
 	errorTemplate.Execute(w, map[string]string{"errorMsg": errorMessage})
 }
 
