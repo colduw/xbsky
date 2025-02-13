@@ -1154,29 +1154,29 @@ func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Type", "image/jpeg")
 
 	//nolint:prealloc // No
 	var args []string
-	var avgHeight int
+	var avgWidth int
 	for _, k := range images {
 		args = append(args, "-i", k.FullSize)
-		avgHeight += int(k.AspectRatio.Height)
+		avgWidth += int(k.AspectRatio.Width)
 	}
 
-	avgHeight /= len(images)
+	avgWidth /= len(images)
 
 	var filterComplex string
 	for i := range images {
-		filterComplex += fmt.Sprintf("[%d:v]scale=-1:%d[m%d];", i, avgHeight, i)
+		filterComplex += fmt.Sprintf("[%d:v]scale=%d:-2[m%d];", i, avgWidth, i)
 	}
 
 	for i := range images {
 		filterComplex += fmt.Sprintf("[m%d]", i)
 	}
-	filterComplex += fmt.Sprintf("hstack=inputs=%d", len(images))
+	filterComplex += fmt.Sprintf("vstack=inputs=%d", len(images))
 
-	args = append(args, "-filter_complex", filterComplex, "-f", "image2pipe", "-c:v", "png", "pipe:1")
+	args = append(args, "-filter_complex", filterComplex, "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1")
 
 	//nolint:gosec // This is just ffmpeg, with the only external values being k.FullSize, which is from the API
 	cmd := exec.CommandContext(r.Context(), "ffmpeg", args...)
