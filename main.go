@@ -312,7 +312,7 @@ var (
 	feedTemplate    = template.Must(template.ParseFiles("./views/feed.html"))
 	listTemplate    = template.Must(template.ParseFiles("./views/list.html"))
 	packTemplate    = template.Must(template.ParseFiles("./views/pack.html"))
-	postTemplate    = template.Must(template.New("post.html").Funcs(template.FuncMap{"escapePath": url.PathEscape}).ParseFiles("./views/post.html"))
+	postTemplate    = template.Must(template.New("post.html").Funcs(template.FuncMap{"escapePath": url.PathEscape, "nl2br": nl2br}).ParseFiles("./views/post.html"))
 	errorTemplate   = template.Must(template.ParseFiles("./views/error.html"))
 )
 
@@ -1402,4 +1402,10 @@ func toNotation(number int64) string {
 	default:
 		return strconv.FormatInt(number, 10)
 	}
+}
+
+func nl2br(in string) string {
+	// This is escaped, but it somehow works.
+	// I don't know, and I don't wanna know.
+	return strings.ReplaceAll(in, "\n", "<br>")
 }

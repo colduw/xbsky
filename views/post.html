@@ -22,7 +22,11 @@
     <meta property="twitter:site" content="@{{.data.Author.Handle}}">
     <meta property="twitter:creator" content="@{{.data.Author.Handle}}">
 
-    <meta property="og:description" content="{{.data.Description}}">
+    {{if not .isTelegram}}
+        <meta property="og:description" content="{{.data.Description}}">
+    {{else}}
+        <meta property="og:description" content="{{.data.Description | nl2br}}">
+    {{end}}
 
     {{if eq .data.Type "app.bsky.embed.images#view"}}
         <meta property="twitter:card" content="summary_large_image">
