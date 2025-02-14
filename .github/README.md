@@ -20,7 +20,9 @@ Add `/photo/(desired image number)` after the record key, so it becomes `xbsky.a
 
 ### For developers:
 
-Use `api.xbsky.app` to get a [parsed struct](https://github.com/colduw/xbsky/blob/main/main.go#L242) about the post's information. Responses will have a `Content-Type: application/json`
+Use `api.xbsky.app` to get a [parsed struct](https://github.com/colduw/xbsky/blob/main/main.go#L242) (`parsedData` field) about the post's information, as well as the [original struct](https://github.com/colduw/xbsky/blob/main/main.go#L40) (`originalData` field) that was used to create the parsed struct.
+
+Responses will have a `Content-Type: application/json`, and `200 OK` status code on success
 
 # Gallery
 

@@ -28,6 +28,10 @@ linters-settings:
     check-type-assertions: true
     check-blank: true
     disable-default-exclusions: true
+    exclude-functions:
+      - '(net/http.ResponseWriter).Write' # This shouldn't fail
+      - '(io.ReadCloser).Close' # To have the same effect as EXC0001, for http response body closes. This shouldn't fail
+      - '(*html/template.Template).Execute' # This shouldn't fail
 
   errchkjson:
     report-no-exported: true
@@ -60,6 +64,8 @@ linters-settings:
     extra-rules: true
 
   gosec:
+    excludes:
+      - G104 # Already provided by errcheck and revive
     config:
       global:
         show-ignored: true
@@ -119,6 +125,8 @@ linters-settings:
         disabled: true
       - name: max-control-nesting
         disabled: true
+      - name: unhandled-error
+        arguments: ['html/template.Template.Execute', 'net/http.ResponseWriter.Write']
 
   tagalign:
     strict: true
