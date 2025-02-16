@@ -1,4 +1,4 @@
-# Config for golangci-lint v1.63.4
+# Config for golangci-lint v1.64.5
 output:
   sort-results: true
 
@@ -131,9 +131,6 @@ linters-settings:
   tagalign:
     strict: true
 
-  tenv:
-    all: true
-
   testifylint:
     enable-all: true
 
@@ -231,7 +228,6 @@ linters:
     - sqlclosecheck
     - stylecheck
     - tagalign
-    - tenv
     - testableexamples
     - testifylint
     - testpackage
