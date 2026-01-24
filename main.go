@@ -355,8 +355,8 @@ func resolveHandleDNS(ctx context.Context, handle string) (string, bool) {
 	}
 
 	if len(records) > 0 {
-		if strings.HasPrefix(records[0], "did=") {
-			return strings.TrimPrefix(records[0], "did="), true
+		if didfound, ok := strings.CutPrefix(records[0], "did="); ok {
+			return didfound, true
 		}
 	}
 
@@ -424,8 +424,8 @@ func resolvePLC(ctx context.Context, did string) plcDirectory {
 	// https://atproto.com/specs/did#blessed-did-methods
 	if strings.HasPrefix(did, "did:plc:") {
 		didURL = "https://plc.directory/" + did
-	} else if strings.HasPrefix(did, "did:web:") {
-		didURL = fmt.Sprintf("https://%s/.well-known/did.json", strings.TrimPrefix(did, "did:web:"))
+	} else if didweb, ok := strings.CutPrefix(did, "did:web:"); ok {
+		didURL = fmt.Sprintf("https://%s/.well-known/did.json", didweb)
 	} else {
 		return plcDirectory{}
 	}
@@ -1156,7 +1156,6 @@ func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
 
 	w.Header().Set("Content-Type", "image/jpeg")
 
-	//nolint:prealloc // No
 	var args []string
 	var avgWidth int
 	for _, k := range images {
@@ -1166,17 +1165,17 @@ func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
 
 	avgWidth /= len(images)
 
-	var filterComplex string
+	var filterComplex strings.Builder
 	for i := range images {
-		filterComplex += fmt.Sprintf("[%d:v]scale=%d:-2[m%d];", i, avgWidth, i)
+		fmt.Fprintf(&filterComplex, "[%d:v]scale=%d:-2[m%d];", i, avgWidth, i)
 	}
 
 	for i := range images {
-		filterComplex += fmt.Sprintf("[m%d]", i)
+		fmt.Fprintf(&filterComplex, "[m%d]", i)
 	}
-	filterComplex += fmt.Sprintf("vstack=inputs=%d", len(images))
+	fmt.Fprintf(&filterComplex, "vstack=inputs=%d", len(images))
 
-	args = append(args, "-filter_complex", filterComplex, "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1")
+	args = append(args, "-filter_complex", filterComplex.String(), "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1")
 
 	//nolint:gosec // This is just ffmpeg, with the only external values being k.FullSize, which is from the API
 	cmd := exec.CommandContext(r.Context(), "ffmpeg", args...)
@@ -1267,10 +1266,7 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 			}
 
 			cutLen := maxAuthorLen - len(embed.AuthorName+"\n\n")
-
-			if cutLen < 0 {
-				cutLen = 0
-			}
+			cutLen = max(cutLen, 0) // if cutLen < 0 {cutLen = 0}
 
 			if len(theDesc) > cutLen {
 				if cutLen >= ellipsisLen {
@@ -1357,7 +1353,7 @@ func main() {
 	manager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
 		HostPolicy: autocert.HostWhitelist("xbsky.app", "raw.xbsky.app", "mosaic.xbsky.app", "api.xbsky.app"),
-		Cache:      autocert.DirCache("certs/"),
+		Cache:      autocert.DirCache("certs"),
 	}
 
 	go func() {
