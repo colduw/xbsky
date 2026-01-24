@@ -141,6 +141,7 @@ linters:
         - (io.ReadCloser).Close
         - (*html/template.Template).Execute
         - (*strings.Builder).WriteString # Returns nil
+        - fmt.Fprintf
     errchkjson:
       report-no-exported: true
     exhaustive:
@@ -222,6 +223,7 @@ linters:
             - html/template.Template.Execute
             - net/http.ResponseWriter.Write
             - strings.Builder.WriteString # Returns nil
+            - fmt.Fprintf
     tagalign:
       strict: true
     testifylint:
