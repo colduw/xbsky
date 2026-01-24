@@ -1,1 +1,1 @@
-docker build -t xbsky . && docker run -v certs:/app/certs -d --name="xbsky" -p 80:80 -p 443:443 xbsky
+docker build -t xbsky . && docker run --restart unless-stopped -v certs:/app/certs -d --name="xbsky" -p 80:80 -p 443:443 xbsky
