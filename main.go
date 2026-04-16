@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/crypto/acme/autocert"
@@ -308,6 +309,8 @@ var (
 		Timeout: 10 * time.Second,
 	}
 
+	isBlueskyDead atomic.Bool
+
 	profileTemplate = template.Must(template.ParseFiles("./views/profile.html"))
 	feedTemplate    = template.Must(template.ParseFiles("./views/feed.html"))
 	listTemplate    = template.Must(template.ParseFiles("./views/list.html"))
@@ -319,6 +322,9 @@ var (
 // Return values: string = DID, bool = ok (request succeeded or not)
 func resolveHandleAPI(ctx context.Context, handle string) (string, bool) {
 	apiURL := "https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=" + handle
+	if isBlueskyDead.Load() {
+		apiURL = "https://api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=" + handle
+	}
 
 	req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, http.NoBody)
 	if reqErr != nil {
@@ -466,6 +472,9 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 	plcData := resolvePLC(r.Context(), editedPID)
 
 	apiURL := "https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=" + editedPID
+	if isBlueskyDead.Load() {
+		apiURL = "https://api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=" + editedPID
+	}
 
 	req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
 	if reqErr != nil {
@@ -524,6 +533,9 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getFeedGenerator?feed=%s/app.bsky.feed.generator/%s", editedPID, feedID)
+	if isBlueskyDead.Load() {
+		apiURL = fmt.Sprintf("https://api.bsky.app/xrpc/app.bsky.feed.getFeedGenerator?feed=%s/app.bsky.feed.generator/%s", editedPID, feedID)
+	}
 
 	req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
 	if reqErr != nil {
@@ -584,6 +596,9 @@ func getList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.graph.getList?limit=1&list=%s/app.bsky.graph.list/%s", editedPID, listID)
+	if isBlueskyDead.Load() {
+		apiURL = fmt.Sprintf("https://api.bsky.app/xrpc/app.bsky.graph.getList?limit=1&list=%s/app.bsky.graph.list/%s", editedPID, listID)
+	}
 
 	req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
 	if reqErr != nil {
@@ -649,6 +664,9 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 	}
 
 	apiURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.graph.getStarterPack?starterPack=%s/app.bsky.graph.starterpack/%s", editedPID, packID)
+	if isBlueskyDead.Load() {
+		apiURL = fmt.Sprintf("https://api.bsky.app/xrpc/app.bsky.graph.getStarterPack?starterPack=%s/app.bsky.graph.starterpack/%s", editedPID, packID)
+	}
 
 	req, reqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
 	if reqErr != nil {
@@ -708,9 +726,12 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		editedPID = "at://" + editedPID
 	}
 
-	postAPIURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?depth=0&uri=%s/app.bsky.feed.post/%s", editedPID, postID)
+	apiURL := fmt.Sprintf("https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?depth=0&uri=%s/app.bsky.feed.post/%s", editedPID, postID)
+	if isBlueskyDead.Load() {
+		apiURL = fmt.Sprintf("https://api.bsky.app/xrpc/app.bsky.feed.getPostThread?depth=0&uri=%s/app.bsky.feed.post/%s", editedPID, postID)
+	}
 
-	postReq, postReqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, postAPIURL, http.NoBody)
+	postReq, postReqErr := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
 	if postReqErr != nil {
 		errorPage(w, "getPost: Failed to create request")
 		return
@@ -1356,6 +1377,8 @@ func main() {
 		Cache:      autocert.DirCache("certs"),
 	}
 
+	go blueskyHealthCheck()
+
 	go func() {
 		httpServer := &http.Server{
 			Addr:              ":80",
@@ -1404,4 +1427,33 @@ func nl2br(in string) string {
 	// This is escaped, but it somehow works.
 	// I don't know, and I don't wanna know.
 	return strings.ReplaceAll(in, "\n", "<br>")
+}
+
+// Check if bluesky is having issues (https://public.api.bsky.app/xrpc/_health)
+// If this returns a non 200, it is most likely down (probably due to their ai slop usage)
+// In that case, rewrite it to use the "private" api, which is the same, just w/o caching
+// Not a guaranteed fix, since it works 50/50, but still better than the guaranteed down public api
+func blueskyHealthCheck() {
+	ticker := time.NewTicker(10 * time.Minute)
+
+	for range ticker.C {
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://public.api.bsky.app/xrpc/_health", http.NoBody)
+		if err != nil {
+			isBlueskyDead.Store(true)
+			continue
+		}
+
+		resp, err := timeoutClient.Do(req)
+		if err != nil {
+			isBlueskyDead.Store(true)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			isBlueskyDead.Store(true)
+			continue
+		}
+
+		isBlueskyDead.Store(false)
+	}
 }
