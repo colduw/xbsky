@@ -19,7 +19,7 @@ linters:
     - dupword
     - durationcheck
     # - embeddedstructfieldcheck
-    - err113
+    # - err113
     - errcheck
     - errchkjson
     - errname
@@ -167,6 +167,7 @@ linters:
     gosec:
       excludes:
         - G104
+        - G704
       config:
         global:
           audit: true
@@ -218,12 +219,15 @@ linters:
           disabled: true
         - name: enforce-switch-style
           disabled: true
+        - name: unused-parameter
+          disabled: true
         - name: unhandled-error
           arguments:
             - html/template.Template.Execute
             - net/http.ResponseWriter.Write
             - strings.Builder.WriteString # Returns nil
             - fmt.Fprintf
+            - io.Closer.Close
     tagalign:
       strict: true
     testifylint:

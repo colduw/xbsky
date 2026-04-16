@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"golang.org/x/crypto/acme/autocert"
@@ -305,8 +306,23 @@ const (
 )
 
 var (
+	sDialer = &net.Dialer{
+		Timeout:   10 * time.Second,
+		KeepAlive: 30 * time.Second,
+		Control:   sDial,
+	}
+
 	timeoutClient = &http.Client{
 		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			Proxy:                 http.ProxyFromEnvironment,
+			DialContext:           sDialer.DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			IdleConnTimeout:       time.Minute,
+			TLSHandshakeTimeout:   5 * time.Second,
+			ExpectContinueTimeout: time.Second,
+		},
 	}
 
 	isBlueskyDead atomic.Bool
@@ -1450,10 +1466,47 @@ func blueskyHealthCheck() {
 		}
 
 		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
 			isBlueskyDead.Store(true)
 			continue
 		}
 
+		resp.Body.Close()
 		isBlueskyDead.Store(false)
 	}
+}
+
+// https://www.agwa.name/blog/post/preventing_server_side_request_forgery_in_golang
+func sDial(network, addr string, conn syscall.RawConn) error {
+	if network != "tcp4" && network != "tcp6" {
+		return errors.New("bad network type")
+	}
+
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return errors.New("bad address")
+	}
+
+	if port != "80" && port != "443" {
+		return errors.New("bad port")
+	}
+
+	// https://stackoverflow.com/a/50825191 && https://stackoverflow.com/a/67526079
+	ips, err := net.DefaultResolver.LookupIPAddr(context.Background(), host)
+	if err != nil {
+		return errors.New("failed host lookup")
+	}
+
+	for _, v := range ips {
+		if !v.IP.IsGlobalUnicast() ||
+			v.IP.IsLoopback() ||
+			v.IP.IsLinkLocalUnicast() ||
+			v.IP.IsLinkLocalMulticast() ||
+			v.IP.IsPrivate() ||
+			v.IP.IsUnspecified() {
+			return errors.New("invalid host")
+		}
+	}
+
+	return nil
 }
