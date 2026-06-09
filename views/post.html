@@ -28,9 +28,12 @@
         <meta property="og:description" content="{{.data.Description | nl2br}}">
     {{end}}
 
-    {{if eq .data.Type "app.bsky.embed.images#view"}}
+    {{if or (eq .data.Type "app.bsky.embed.images#view") (eq .data.Type "app.bsky.embed.gallery#view")}}
         <meta property="twitter:card" content="summary_large_image">
         {{if and (.isTelegram) (gt (len .data.Images) 1)}}
+            <meta property="og:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
+            <meta property="twitter:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
+        {{else if eq .data.Type "app.bsky.embed.gallery#view"}}
             <meta property="og:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
             <meta property="twitter:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
         {{else}}

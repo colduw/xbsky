@@ -195,6 +195,10 @@ type (
 
 			Images apiImages `json:"images"`
 
+			// Gallery (10+ images)
+			// Why is it called "items"? Who knows.
+			Items apiImages `json:"items"`
+
 			CID         string         `json:"cid"`
 			Thumbnail   string         `json:"thumbnail"`
 			AspectRatio apiAspectRatio `json:"aspectRatio"`
@@ -210,6 +214,8 @@ type (
 		Type string `json:"$type"`
 
 		Images apiImages `json:"images"`
+
+		Items apiImages `json:"items"`
 
 		External apiExternal `json:"external"`
 
@@ -291,6 +297,7 @@ const (
 	maxReadLimit = 10 * (1024 * 1024)
 
 	bskyEmbedImages    = "app.bsky.embed.images#view"
+	galleryImages      = "app.bsky.embed.gallery#view"
 	bskyEmbedExternal  = "app.bsky.embed.external#view"
 	bskyEmbedVideo     = "app.bsky.embed.video#view"
 	bskyEmbedQuote     = "app.bsky.embed.recordWithMedia#view"
@@ -805,6 +812,9 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		// Image(s)
 		selfData.Type = bskyEmbedImages
 		selfData.Images = postData.Thread.Post.Embed.Images
+	case galleryImages:
+		selfData.Type = galleryImages
+		selfData.Images = postData.Thread.Post.Embed.Items
 	case bskyEmbedExternal:
 		// External
 		selfData.Type = bskyEmbedExternal
@@ -823,6 +833,9 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 		case bskyEmbedImages:
 			selfData.Type = bskyEmbedImages
 			selfData.Images = postData.Thread.Post.Embed.Media.Images
+		case galleryImages:
+			selfData.Type = galleryImages
+			selfData.Images = postData.Thread.Post.Embed.Media.Items
 		case bskyEmbedExternal:
 			selfData.Type = bskyEmbedExternal
 			selfData.External = postData.Thread.Post.Embed.Media.External
@@ -846,6 +859,9 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			case bskyEmbedImages:
 				selfData.Type = bskyEmbedImages
 				selfData.Images = theEmbed.Images
+			case galleryImages:
+				selfData.Type = galleryImages
+				selfData.Images = theEmbed.Items
 			case bskyEmbedExternal:
 				selfData.Type = bskyEmbedExternal
 				selfData.External = theEmbed.External
@@ -861,6 +877,9 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				case bskyEmbedImages:
 					selfData.Type = bskyEmbedImages
 					selfData.Images = theEmbed.Media.Images
+				case galleryImages:
+					selfData.Type = galleryImages
+					selfData.Images = theEmbed.Media.Items
 				case bskyEmbedExternal:
 					selfData.Type = bskyEmbedExternal
 					selfData.External = theEmbed.Media.External
@@ -942,6 +961,9 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			case bskyEmbedImages:
 				selfData.Type = bskyEmbedImages
 				selfData.Images = postData.Thread.Parent.Post.Embed.Images
+			case galleryImages:
+				selfData.Type = galleryImages
+				selfData.Images = postData.Thread.Parent.Post.Embed.Items
 			case bskyEmbedExternal:
 				selfData.Type = bskyEmbedExternal
 				selfData.External = postData.Thread.Parent.Post.Embed.External
@@ -957,6 +979,9 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				case bskyEmbedImages:
 					selfData.Type = bskyEmbedImages
 					selfData.Images = postData.Thread.Parent.Post.Embed.Media.Images
+				case galleryImages:
+					selfData.Type = galleryImages
+					selfData.Images = postData.Thread.Parent.Post.Embed.Items
 				case bskyEmbedExternal:
 					selfData.Type = bskyEmbedExternal
 					selfData.External = postData.Thread.Parent.Post.Embed.Media.External
@@ -1116,7 +1141,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if strings.HasPrefix(r.Host, "mosaic.") {
-		if selfData.Type == bskyEmbedImages {
+		if selfData.Type == bskyEmbedImages || selfData.Type == galleryImages {
 			genMosaic(w, r, selfData.Images)
 			return
 		}
@@ -1127,7 +1152,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 	if strings.HasPrefix(r.Host, "raw.") {
 		switch selfData.Type {
-		case bskyEmbedImages:
+		case bskyEmbedImages, galleryImages:
 			genMosaic(w, r, selfData.Images)
 			return
 		case bskyEmbedExternal:
@@ -1210,7 +1235,7 @@ func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
 	for i := range images {
 		fmt.Fprintf(&filterComplex, "[m%d]", i)
 	}
-	fmt.Fprintf(&filterComplex, "vstack=inputs=%d", len(images))
+	fmt.Fprintf(&filterComplex, "hstack=inputs=%d", len(images))
 
 	args = append(args, "-filter_complex", filterComplex.String(), "-f", "image2pipe", "-c:v", "mjpeg", "pipe:1")
 
