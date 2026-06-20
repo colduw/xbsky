@@ -13,7 +13,7 @@ FROM ubuntu:latest AS final
 
 COPY --from=builder /app/ /app/
 
-RUN apt update -y && apt upgrade y && apt install -y ffmpeg
+RUN apt update -y && apt upgrade -y && apt install -y ffmpeg
 
 WORKDIR /app
 
