@@ -2206,7 +2206,7 @@ func main() {
 	})
 
 	sMux.HandleFunc("GET /users/{ignoredField}/statuses/{id}", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "https://xbsky.app/api/v1/statuses/"+r.PathValue("id"), http.StatusFound)
+		http.Redirect(w, r, "https://xbsky.app/api/v1/statuses/"+url.PathEscape(r.PathValue("id")), http.StatusFound)
 	})
 
 	sMux.HandleFunc("GET /api/v1/statuses/{id}", genActivity)
