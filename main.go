@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"io"
+	"math/rand/v2"
 	"net"
 	"net/http"
 	"net/url"
@@ -27,6 +29,7 @@ type (
 		DisplayName    string `json:"displayName"`
 		Avatar         string `json:"avatar"`
 		Description    string `json:"description"`
+		CreatedAt      string `json:"createdAt"`
 		FollowersCount int64  `json:"followersCount"`
 		FollowsCount   int64  `json:"followsCount"`
 		PostsCount     int64  `json:"postsCount"`
@@ -56,6 +59,7 @@ type (
 			DisplayName string    `json:"displayName"`
 			Description string    `json:"description"`
 			Avatar      string    `json:"avatar"`
+			IndexedAt   string    `json:"indexedAt"`
 			Creator     apiAuthor `json:"creator"`
 			LikeCount   int64     `json:"likeCount"`
 		} `json:"view"`
@@ -70,7 +74,9 @@ type (
 			Purpose     string    `json:"purpose"`
 			Avatar      string    `json:"avatar"`
 			Description string    `json:"description"`
+			IndexedAt   string    `json:"indexedAt"`
 			Creator     apiAuthor `json:"creator"`
+			ItemCount   int64     `json:"listItemCount"`
 		} `json:"list"`
 	}
 
@@ -79,6 +85,7 @@ type (
 			Record struct {
 				Name        string `json:"name"`
 				Description string `json:"description"`
+				CreatedAt   string `json:"createdAt"`
 			} `json:"record"`
 
 			Creator apiAuthor `json:"creator"`
@@ -106,12 +113,28 @@ type (
 	}
 
 	apiPost struct {
+		URI string `json:"uri"`
+
 		Author apiAuthor `json:"author"`
 
 		// Text of the post
 		Record struct {
 			Text      string `json:"text"`
 			CreatedAt string `json:"createdAt"`
+
+			Facets []struct {
+				Features []struct {
+					Type string `json:"$type"`
+					URI  string `json:"uri"`
+					Tag  string `json:"tag"`
+					DID  string `json:"did"`
+				} `json:"features"`
+
+				Index struct {
+					ByteStart int64 `json:"byteStart"`
+					ByteEnd   int64 `json:"byteEnd"`
+				} `json:"index"`
+			} `json:"facets"`
 		} `json:"record"`
 
 		// Embeds of stuff, if any.
@@ -128,16 +151,31 @@ type (
 			Record struct {
 				Type string `json:"$type"`
 
-				// This is for starter packs
+				// This is for starter packs (it contains the quotee's id)
 				URI string `json:"uri"`
 
 				// This is a quote with media
 				Record struct {
 					Value struct {
-						Text string `json:"text"`
+						Text   string `json:"text"`
+						Facets []struct {
+							Features []struct {
+								Type string `json:"$type"`
+								URI  string `json:"uri"`
+								Tag  string `json:"tag"`
+								DID  string `json:"did"`
+							} `json:"features"`
+
+							Index struct {
+								ByteStart int64 `json:"byteStart"`
+								ByteEnd   int64 `json:"byteEnd"`
+							} `json:"index"`
+						} `json:"facets"`
 					} `json:"value"`
 
 					Author apiAuthor `json:"author"`
+
+					URI string `json:"uri"`
 
 					// This is for starter packs
 					Name        string `json:"name"`
@@ -146,6 +184,20 @@ type (
 
 				Value struct {
 					Text string `json:"text"`
+
+					Facets []struct {
+						Features []struct {
+							Type string `json:"$type"`
+							URI  string `json:"uri"`
+							Tag  string `json:"tag"`
+							DID  string `json:"did"`
+						} `json:"features"`
+
+						Index struct {
+							ByteStart int64 `json:"byteStart"`
+							ByteEnd   int64 `json:"byteEnd"`
+						} `json:"index"`
+					} `json:"facets"`
 				} `json:"value"`
 
 				Author apiAuthor `json:"author"`
@@ -237,6 +289,51 @@ type (
 		AuthorName   string `json:"author_name"`
 	}
 
+	richActivityEncoded struct {
+		Type     string `json:"t"`
+		Handle   string `json:"h"`
+		PostID   string `json:"p"`
+		PhotoCut string `json:"c"`
+	}
+
+	richActivity struct {
+		ID               string                  `json:"id"`
+		URL              string                  `json:"url"`
+		URI              string                  `json:"uri"`
+		CreatedAt        string                  `json:"created_at"`
+		Language         string                  `json:"language"` // "en"
+		Content          string                  `json:"content"`
+		SpoilerText      string                  `json:"spoiler_text"` // Title
+		Visibility       string                  `json:"visibility"`   // "public"
+		Application      richActivityApplication `json:"application"`
+		Account          richActivityAccount     `json:"account"`
+		MediaAttachments []richActivityMedia     `json:"media_attachments"`
+	}
+
+	richActivityApplication struct {
+		Name    string `json:"name"`
+		Website string `json:"website"`
+	}
+
+	richActivityMedia struct {
+		ID          string `json:"id"`
+		Type        string `json:"type"`
+		URL         string `json:"url"`
+		Preview     string `json:"preview_url"`
+		Description string `json:"description"`
+	}
+
+	richActivityAccount struct {
+		ID           string `json:"id"`
+		DisplayName  string `json:"display_name"`
+		UserName     string `json:"username"`
+		Acct         string `json:"acct"`
+		URL          string `json:"url"`
+		URI          string `json:"uri"`
+		Avatar       string `json:"avatar"`
+		AvatarStatic string `json:"avatar_static"`
+	}
+
 	// https://atproto.com/specs/did#did-documents
 	plcDirectory struct {
 		AKA     []string `json:"alsoKnownAs"`
@@ -256,6 +353,20 @@ type (
 		Record struct {
 			Text      string `json:"text"`
 			CreatedAt string `json:"createdAt"`
+
+			Facets []struct {
+				Features []struct {
+					Type string `json:"$type"`
+					URI  string `json:"uri"`
+					Tag  string `json:"tag"`
+					DID  string `json:"did"`
+				} `json:"features"`
+
+				Index struct {
+					ByteStart int64 `json:"byteStart"`
+					ByteEnd   int64 `json:"byteEnd"`
+				} `json:"index"`
+			} `json:"facets"`
 		} `json:"record"`
 
 		Images apiImages `json:"images"`
@@ -281,6 +392,8 @@ type (
 		IsVideo bool `json:"isVideo"`
 		IsGif   bool `json:"isGif"`
 
+		OriginalPostID string `json:"originalPostID"`
+
 		CommonEmbeds struct {
 			Purpose     string    `json:"purpose"`
 			Name        string    `json:"name"`
@@ -288,6 +401,11 @@ type (
 			Description string    `json:"description"`
 			Creator     apiAuthor `json:"creator"`
 		} `json:"commonEmbeds"`
+	}
+
+	SortedAPIResponse struct {
+		OriginalData apiThread `json:"originalData"`
+		ParsedData   ownData   `json:"parsedData"`
 	}
 )
 
@@ -535,9 +653,31 @@ func getProfile(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if strings.HasPrefix(r.Host, "api.") {
+		w.Header().Set("Content-Type", "application/json")
+
+		if encodeErr := json.NewEncoder(w).Encode(&profile); encodeErr != nil {
+			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+			return
+		}
+
+		return
+	}
+
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	profileTemplate.Execute(w, map[string]any{"profile": profile, "isTelegram": isTelegramAgent})
+	encodedID := richActivityEncoded{
+		Type:   "prof",
+		Handle: profile.Handle,
+	}
+
+	marshaled, err := json.Marshal(encodedID)
+	if err != nil {
+		errorPage(w, "getProfile: failed to marshal for activity")
+		return
+	}
+
+	profileTemplate.Execute(w, map[string]any{"profile": profile, "isTelegram": isTelegramAgent, "encodedID": hex.EncodeToString(marshaled)})
 }
 
 func getFeed(w http.ResponseWriter, r *http.Request) {
@@ -598,9 +738,32 @@ func getFeed(w http.ResponseWriter, r *http.Request) {
 
 	feed.View.Description = fmt.Sprintf("📡 A feed by %s (@%s)\n\n%s", feed.View.Creator.DisplayName, feed.View.Creator.Handle, feed.View.Description)
 
+	if strings.HasPrefix(r.Host, "api.") {
+		w.Header().Set("Content-Type", "application/json")
+
+		if encodeErr := json.NewEncoder(w).Encode(&feed); encodeErr != nil {
+			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+			return
+		}
+
+		return
+	}
+
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	feedTemplate.Execute(w, map[string]any{"feed": feed, "feedID": feedID, "isTelegram": isTelegramAgent})
+	encodedID := richActivityEncoded{
+		Type:   "feed",
+		Handle: feed.View.Creator.DID,
+		PostID: feedID,
+	}
+
+	marshaled, err := json.Marshal(encodedID)
+	if err != nil {
+		errorPage(w, "getFeed: failed to marshal for activity")
+		return
+	}
+
+	feedTemplate.Execute(w, map[string]any{"feed": feed, "feedID": feedID, "isTelegram": isTelegramAgent, "encodedID": hex.EncodeToString(marshaled)})
 }
 
 func getList(w http.ResponseWriter, r *http.Request) {
@@ -666,9 +829,32 @@ func getList(w http.ResponseWriter, r *http.Request) {
 		list.List.Description = fmt.Sprintf("👥 A curator list by %s (@%s)\n\n%s", list.List.Creator.DisplayName, list.List.Creator.Handle, list.List.Description)
 	}
 
+	if strings.HasPrefix(r.Host, "api.") {
+		w.Header().Set("Content-Type", "application/json")
+
+		if encodeErr := json.NewEncoder(w).Encode(&list); encodeErr != nil {
+			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+			return
+		}
+
+		return
+	}
+
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	listTemplate.Execute(w, map[string]any{"list": list.List, "listID": listID, "isTelegram": isTelegramAgent})
+	encodedID := richActivityEncoded{
+		Type:   "list",
+		Handle: list.List.Creator.DID,
+		PostID: listID,
+	}
+
+	marshaled, err := json.Marshal(encodedID)
+	if err != nil {
+		errorPage(w, "getList: failed to marshal for activity")
+		return
+	}
+
+	listTemplate.Execute(w, map[string]any{"list": list.List, "listID": listID, "isTelegram": isTelegramAgent, "encodedID": hex.EncodeToString(marshaled)})
 }
 
 func getPack(w http.ResponseWriter, r *http.Request) {
@@ -729,9 +915,32 @@ func getPack(w http.ResponseWriter, r *http.Request) {
 
 	pack.StarterPack.Record.Description = fmt.Sprintf("📦 A starter pack by %s (@%s)\n\n%s", pack.StarterPack.Creator.DisplayName, pack.StarterPack.Creator.Handle, pack.StarterPack.Record.Description)
 
+	if strings.HasPrefix(r.Host, "api.") {
+		w.Header().Set("Content-Type", "application/json")
+
+		if encodeErr := json.NewEncoder(w).Encode(&pack); encodeErr != nil {
+			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
+			return
+		}
+
+		return
+	}
+
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	packTemplate.Execute(w, map[string]any{"pack": pack.StarterPack, "packID": packID, "isTelegram": isTelegramAgent})
+	encodedID := richActivityEncoded{
+		Type:   "pack",
+		Handle: pack.StarterPack.Creator.DID,
+		PostID: packID,
+	}
+
+	marshaled, err := json.Marshal(encodedID)
+	if err != nil {
+		errorPage(w, "getPack: failed to marshal for activity")
+		return
+	}
+
+	packTemplate.Execute(w, map[string]any{"pack": pack.StarterPack, "packID": packID, "isTelegram": isTelegramAgent, "encodedID": hex.EncodeToString(marshaled)})
 }
 
 func getPost(w http.ResponseWriter, r *http.Request) {
@@ -804,7 +1013,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 	selfData.QuoteCount = postData.Thread.Post.QuoteCount
 
 	selfData.Description = selfData.Record.Text
-	selfData.StatsForTG = fmt.Sprintf("💬 %s   🔁 %s   ❤️ %s   📝 %s", toNotation(postData.Thread.Post.ReplyCount), toNotation(postData.Thread.Post.RepostCount), toNotation(postData.Thread.Post.LikeCount), toNotation(postData.Thread.Post.QuoteCount))
+	selfData.StatsForTG = fmt.Sprintf("💬 %s   🔁 %s   🩷 %s   📝 %s", toNotation(postData.Thread.Post.ReplyCount), toNotation(postData.Thread.Post.RepostCount), toNotation(postData.Thread.Post.LikeCount), toNotation(postData.Thread.Post.QuoteCount))
 
 	// This is to reduce redundancy in the templates
 	switch postData.Thread.Post.Embed.Type {
@@ -1072,7 +1281,7 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			// Not a GIF, Add the external's title & description to the template description
 			selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
 		}
-	case bskyEmbedImages:
+	case bskyEmbedImages, galleryImages:
 		pnStr := r.PathValue("photoNum")
 		if pnStr != "" {
 			pnValue, atoiErr := strconv.Atoi(pnStr)
@@ -1114,6 +1323,11 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 				postData.Thread.Post.Embed.Record.Author.DisplayName = postData.Thread.Post.Embed.Record.Author.Handle
 			}
 
+			_, qPID, found := strings.Cut(postData.Thread.Post.Embed.Record.URI, "app.bsky.feed.post/")
+			if found {
+				selfData.OriginalPostID = qPID
+			}
+
 			selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Author.Handle, postData.Thread.Post.Embed.Record.Value.Text)
 		}
 	case bskyEmbedQuote:
@@ -1123,6 +1337,11 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 		if postData.Thread.Post.Embed.Record.Record.Author.DisplayName == "" {
 			postData.Thread.Post.Embed.Record.Record.Author.DisplayName = postData.Thread.Post.Embed.Record.Record.Author.Handle
+		}
+
+		_, qPID, found := strings.Cut(postData.Thread.Post.Embed.Record.Record.URI, "app.bsky.feed.post/")
+		if found {
+			selfData.OriginalPostID = qPID
 		}
 
 		selfData.Description += fmt.Sprintf("📝 Quoting %s (@%s):\n%s", postData.Thread.Post.Embed.Record.Record.Author.DisplayName, postData.Thread.Post.Embed.Record.Record.Author.Handle, postData.Thread.Post.Embed.Record.Record.Value.Text)
@@ -1135,6 +1354,11 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 		if postData.Thread.Parent.Post.Author.DisplayName == "" {
 			postData.Thread.Parent.Post.Author.DisplayName = postData.Thread.Parent.Post.Author.Handle
+		}
+
+		_, qPID, found := strings.Cut(postData.Thread.Parent.Post.URI, "app.bsky.feed.post/")
+		if found {
+			selfData.OriginalPostID = qPID
 		}
 
 		selfData.Description += fmt.Sprintf("💬 Replying to %s (@%s):\n%s", postData.Thread.Parent.Post.Author.DisplayName, postData.Thread.Parent.Post.Author.Handle, postData.Thread.Parent.Post.Record.Text)
@@ -1203,7 +1427,20 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 
 	isTelegramAgent := strings.Contains(r.Header.Get("User-Agent"), "Telegram")
 
-	postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent, "mediaMsg": mediaMsg})
+	encodedID := richActivityEncoded{
+		Type:     "post",
+		Handle:   selfData.Author.DID,
+		PostID:   postID,
+		PhotoCut: r.PathValue("photoNum"),
+	}
+
+	marshaled, err := json.Marshal(encodedID)
+	if err != nil {
+		errorPage(w, "getPost: failed to marshal for activity")
+		return
+	}
+
+	postTemplate.Execute(w, map[string]any{"data": selfData, "editedPID": strings.TrimPrefix(editedPID, "at://"), "postID": postID, "isTelegram": isTelegramAgent, "mediaMsg": mediaMsg, "encodedID": hex.EncodeToString(marshaled)})
 }
 
 func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
@@ -1247,6 +1484,560 @@ func genMosaic(w http.ResponseWriter, r *http.Request, images apiImages) {
 		http.Error(w, "genMosaic: Failed to run", http.StatusInternalServerError)
 		return
 	}
+}
+
+// source: https://compiles.me/blog/making-rich-url-embeds-for-discord && https://embedl.ink/
+// thanks!
+func genActivity(w http.ResponseWriter, r *http.Request) {
+	encodedID := r.PathValue("id")
+
+	hBytes, err := hex.DecodeString(encodedID)
+	if err != nil {
+		errorPage(w, "invalid ID")
+		return
+	}
+
+	var actReqData richActivityEncoded
+	if unmarshalErr := json.Unmarshal(hBytes, &actReqData); unmarshalErr != nil {
+		errorPage(w, "failed to unmarshal JSON")
+		return
+	}
+
+	var richEmbed richActivity
+	switch actReqData.Type {
+	case "post":
+		apiURL := fmt.Sprintf("https://api.xbsky.app/profile/%s/post/%s", actReqData.Handle, actReqData.PostID)
+		if actReqData.PhotoCut != "" {
+			apiURL = fmt.Sprintf("https://api.xbsky.app/profile/%s/post/%s/photo/%s", actReqData.Handle, actReqData.PostID, actReqData.PhotoCut)
+		}
+
+		newAPIReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, apiURL, http.NoBody)
+		if err != nil {
+			errorPage(w, "failed to request api data")
+			return
+		}
+
+		apiResp, err := timeoutClient.Do(newAPIReq)
+		if err != nil {
+			errorPage(w, "failed to do api request")
+			return
+		}
+
+		defer apiResp.Body.Close()
+
+		var sortedAPI SortedAPIResponse
+
+		if decodeErr := json.NewDecoder(apiResp.Body).Decode(&sortedAPI); decodeErr != nil {
+			errorPage(w, "failed to decode response")
+			return
+		}
+
+		var richContent string
+
+		switch sortedAPI.OriginalData.Thread.Post.Embed.Type {
+		case bskyEmbedText:
+			if sortedAPI.OriginalData.Thread.Post.Embed.Record.Type == bskyEmbedTextQuote {
+				if sortedAPI.OriginalData.Thread.Post.Embed.Record.Author.DisplayName == "" {
+					sortedAPI.OriginalData.Thread.Post.Embed.Record.Author.DisplayName = sortedAPI.OriginalData.Thread.Post.Embed.Record.Author.Handle
+				}
+
+				var richBuilder strings.Builder
+
+				qText := sortedAPI.OriginalData.Thread.Post.Embed.Record.Value.Text
+				if qText != "" {
+					if len(sortedAPI.OriginalData.Thread.Post.Embed.Record.Value.Facets) > 0 {
+						richBuilder.WriteString("<p>")
+
+						var lastByteIndex int64
+						for _, v := range sortedAPI.OriginalData.Thread.Post.Embed.Record.Value.Facets {
+							if len(v.Features) > 0 {
+								richBuilder.WriteString(qText[lastByteIndex:v.Index.ByteStart])
+
+								switch v.Features[0].Type {
+								case "app.bsky.richtext.facet#tag":
+									fmt.Fprintf(&richBuilder, `<a href=%q>#%s</a>`, "https://bsky.app/hashtag/"+v.Features[0].Tag, v.Features[0].Tag)
+								case "app.bsky.richtext.facet#link":
+									fmt.Fprintf(&richBuilder, `<a href=%q>%s</a>`, v.Features[0].URI, qText[v.Index.ByteStart:v.Index.ByteEnd])
+								case "app.bsky.richtext.facet#mention":
+									fmt.Fprintf(&richBuilder, `<a href=%q>%s</a>`, "https://bsky.app/profile/"+v.Features[0].DID, qText[v.Index.ByteStart:v.Index.ByteEnd])
+								}
+
+								lastByteIndex = v.Index.ByteEnd
+							}
+						}
+
+						richBuilder.WriteString(qText[lastByteIndex:])
+						richBuilder.WriteString("</p>")
+					} else {
+						fmt.Fprintf(&richBuilder, "<p>%s</p>", qText)
+					}
+				}
+
+				richContent += fmt.Sprintf(`<b><span><a href="https://bsky.app/profile/%s/post/%s">📝 Quoting %s (@%s):</a></span></b><blockquote>%s</blockquote>`, sortedAPI.OriginalData.Thread.Post.Embed.Record.Author.DID, sortedAPI.ParsedData.OriginalPostID, sortedAPI.OriginalData.Thread.Post.Embed.Record.Author.DisplayName, sortedAPI.OriginalData.Thread.Post.Embed.Record.Author.Handle, richBuilder.String())
+			}
+		case bskyEmbedQuote:
+			if sortedAPI.OriginalData.Thread.Post.Embed.Record.Record.Author.DisplayName == "" {
+				sortedAPI.OriginalData.Thread.Post.Embed.Record.Record.Author.DisplayName = sortedAPI.OriginalData.Thread.Post.Embed.Record.Record.Author.Handle
+			}
+
+			var richBuilder strings.Builder
+			qText := sortedAPI.OriginalData.Thread.Post.Embed.Record.Record.Value.Text
+			if qText != "" {
+				if len(sortedAPI.OriginalData.Thread.Post.Embed.Record.Record.Value.Facets) > 0 {
+					richBuilder.WriteString("<p>")
+
+					var lastByteIndex int64
+					for _, v := range sortedAPI.OriginalData.Thread.Post.Embed.Record.Record.Value.Facets {
+						if len(v.Features) > 0 {
+							richBuilder.WriteString(qText[lastByteIndex:v.Index.ByteStart])
+
+							switch v.Features[0].Type {
+							case "app.bsky.richtext.facet#tag":
+								fmt.Fprintf(&richBuilder, `<a href=%q>#%s</a>`, "https://bsky.app/hashtag/"+v.Features[0].Tag, v.Features[0].Tag)
+							case "app.bsky.richtext.facet#link":
+								fmt.Fprintf(&richBuilder, `<a href=%q>%s</a>`, v.Features[0].URI, qText[v.Index.ByteStart:v.Index.ByteEnd])
+							case "app.bsky.richtext.facet#mention":
+								fmt.Fprintf(&richBuilder, `<a href=%q>%s</a>`, "https://bsky.app/profile/"+v.Features[0].DID, qText[v.Index.ByteStart:v.Index.ByteEnd])
+							}
+
+							lastByteIndex = v.Index.ByteEnd
+						}
+					}
+
+					richBuilder.WriteString(qText[lastByteIndex:])
+					richBuilder.WriteString("</p>")
+				} else {
+					fmt.Fprintf(&richBuilder, "<p>%s</p>", qText)
+				}
+			}
+
+			richContent += fmt.Sprintf(`<b><span><a href="https://bsky.app/profile/%s/post/%s">📝 Quoting %s (@%s):</a></span></b><blockquote>%s</blockquote>`, sortedAPI.OriginalData.Thread.Post.Embed.Record.Record.Author.DID, sortedAPI.ParsedData.OriginalPostID, sortedAPI.OriginalData.Thread.Post.Embed.Record.Record.Author.DisplayName, sortedAPI.OriginalData.Thread.Post.Embed.Record.Record.Author.Handle, richBuilder.String())
+		}
+
+		if sortedAPI.OriginalData.Thread.Parent != nil {
+			if sortedAPI.OriginalData.Thread.Parent.Post.Author.DisplayName == "" {
+				sortedAPI.OriginalData.Thread.Parent.Post.Author.DisplayName = sortedAPI.OriginalData.Thread.Parent.Post.Author.Handle
+			}
+
+			var richBuilder strings.Builder
+			qText := sortedAPI.OriginalData.Thread.Parent.Post.Record.Text
+			if qText != "" {
+				if len(sortedAPI.OriginalData.Thread.Parent.Post.Record.Facets) > 0 {
+					richBuilder.WriteString("<p>")
+
+					var lastByteIndex int64
+					for _, v := range sortedAPI.OriginalData.Thread.Parent.Post.Record.Facets {
+						if len(v.Features) > 0 {
+							richBuilder.WriteString(qText[lastByteIndex:v.Index.ByteStart])
+
+							switch v.Features[0].Type {
+							case "app.bsky.richtext.facet#tag":
+								fmt.Fprintf(&richBuilder, `<a href=%q>#%s</a>`, "https://bsky.app/hashtag/"+v.Features[0].Tag, v.Features[0].Tag)
+							case "app.bsky.richtext.facet#link":
+								fmt.Fprintf(&richBuilder, `<a href=%q>%s</a>`, v.Features[0].URI, qText[v.Index.ByteStart:v.Index.ByteEnd])
+							case "app.bsky.richtext.facet#mention":
+								fmt.Fprintf(&richBuilder, `<a href=%q>%s</a>`, "https://bsky.app/profile/"+v.Features[0].DID, qText[v.Index.ByteStart:v.Index.ByteEnd])
+							}
+
+							lastByteIndex = v.Index.ByteEnd
+						}
+					}
+
+					richBuilder.WriteString(qText[lastByteIndex:])
+					richBuilder.WriteString("</p>")
+				} else {
+					fmt.Fprintf(&richBuilder, "<p>%s</p>", qText)
+				}
+			}
+
+			richContent += fmt.Sprintf(`<span><b><a href="https://bsky.app/profile/%s/post/%s">💬 Replying to %s (@%s):</a></b></span><blockquote>%s</blockquote>`, sortedAPI.OriginalData.Thread.Parent.Post.Author.DID, sortedAPI.ParsedData.OriginalPostID, sortedAPI.OriginalData.Thread.Parent.Post.Author.DisplayName, sortedAPI.OriginalData.Thread.Parent.Post.Author.Handle, richBuilder.String())
+		}
+
+		var richBuilder strings.Builder
+		if sortedAPI.ParsedData.Record.Text != "" {
+			if len(sortedAPI.OriginalData.Thread.Post.Record.Facets) > 0 {
+				richBuilder.WriteString("<p>")
+
+				var lastByteIndex int64
+				for _, v := range sortedAPI.OriginalData.Thread.Post.Record.Facets {
+					if len(v.Features) > 0 {
+						richBuilder.WriteString(sortedAPI.ParsedData.Record.Text[lastByteIndex:v.Index.ByteStart])
+
+						switch v.Features[0].Type {
+						case "app.bsky.richtext.facet#tag":
+							fmt.Fprintf(&richBuilder, `<a href=%q>#%s</a>`, "https://bsky.app/hashtag/"+v.Features[0].Tag, v.Features[0].Tag)
+						case "app.bsky.richtext.facet#link":
+							fmt.Fprintf(&richBuilder, `<a href=%q>%s</a>`, v.Features[0].URI, sortedAPI.ParsedData.Record.Text[v.Index.ByteStart:v.Index.ByteEnd])
+						case "app.bsky.richtext.facet#mention":
+							fmt.Fprintf(&richBuilder, `<a href=%q>%s</a>`, "https://bsky.app/profile/"+v.Features[0].DID, sortedAPI.ParsedData.Record.Text[v.Index.ByteStart:v.Index.ByteEnd])
+						}
+
+						lastByteIndex = v.Index.ByteEnd
+					}
+				}
+
+				richBuilder.WriteString(sortedAPI.ParsedData.Record.Text[lastByteIndex:])
+				richBuilder.WriteString("</p>")
+			} else {
+				fmt.Fprintf(&richBuilder, "<p>%s</p>", sortedAPI.ParsedData.Record.Text)
+			}
+
+			richContent += richBuilder.String()
+		}
+
+		if sortedAPI.ParsedData.CommonEmbeds.Name != "" {
+			richContent += "<blockquote>"
+
+			richContent += fmt.Sprintf("<span>%s</span><br>", sortedAPI.ParsedData.CommonEmbeds.Name)
+
+			switch sortedAPI.ParsedData.Type {
+			case bskyEmbedList:
+				switch sortedAPI.ParsedData.CommonEmbeds.Purpose {
+				case modList:
+					richContent += fmt.Sprintf(`<p><b>🚫 A moderation list by <a href="https://bsky.app/profile/%s">%s (@%s)</a></b></p>`, sortedAPI.ParsedData.CommonEmbeds.Creator.DID, sortedAPI.ParsedData.CommonEmbeds.Creator.DisplayName, sortedAPI.ParsedData.CommonEmbeds.Creator.Handle)
+				case curateList:
+					richContent += fmt.Sprintf(`<p><b>👥 A curator list by <a href="https://bsky.app/profile/%s">%s (@%s)</a></b></p>`, sortedAPI.ParsedData.CommonEmbeds.Creator.DID, sortedAPI.ParsedData.CommonEmbeds.Creator.DisplayName, sortedAPI.ParsedData.CommonEmbeds.Creator.Handle)
+				}
+			case bskyEmbedPack:
+				richContent += fmt.Sprintf(`<p><b>📦 A starter pack by <a href="https://bsky.app/profile/%s">%s (@%s)</a></b></p>`, sortedAPI.ParsedData.CommonEmbeds.Creator.DID, sortedAPI.ParsedData.CommonEmbeds.Creator.DisplayName, sortedAPI.ParsedData.CommonEmbeds.Creator.Handle)
+			case bskyEmbedFeed:
+				richContent += fmt.Sprintf(`<p><b>📡 A feed by <a href="https://bsky.app/profile/%s">%s (@%s)</a></b></p>`, sortedAPI.ParsedData.CommonEmbeds.Creator.DID, sortedAPI.ParsedData.CommonEmbeds.Creator.DisplayName, sortedAPI.ParsedData.CommonEmbeds.Creator.Handle)
+			}
+
+			if sortedAPI.ParsedData.CommonEmbeds.Description != "" {
+				richContent += fmt.Sprintf("<span>%s</span>", sortedAPI.ParsedData.CommonEmbeds.Description)
+			}
+
+			richContent += "</blockquote>"
+		}
+
+		if sortedAPI.ParsedData.External.Title != "" {
+			richContent += fmt.Sprintf(`<blockquote><p>%s</p><p>%s</p><p><a href=%q>%s</a></p></blockquote>`, sortedAPI.ParsedData.External.Title, sortedAPI.ParsedData.External.Description, sortedAPI.ParsedData.External.URI, sortedAPI.ParsedData.External.URI)
+		}
+
+		richContent = strings.ReplaceAll(richContent, "\n", "<br>")
+
+		richContent += fmt.Sprintf("<p>%s</p>", fmt.Sprintf("💬 %s &ensp; 🔁 %s &ensp; 🩷 %s &ensp; 📝 %s", toNotation(sortedAPI.ParsedData.ReplyCount), toNotation(sortedAPI.ParsedData.RepostCount), toNotation(sortedAPI.ParsedData.LikeCount), toNotation(sortedAPI.ParsedData.QuoteCount)))
+
+		richEmbed = richActivity{
+			ID:          strconv.Itoa(rand.Int()),
+			URL:         fmt.Sprintf("https://bsky.app/profile/%s/post/%s", actReqData.Handle, actReqData.PostID),
+			URI:         fmt.Sprintf("https://bsky.app/profile/%s/post/%s", actReqData.Handle, actReqData.PostID),
+			CreatedAt:   sortedAPI.ParsedData.Record.CreatedAt,
+			Language:    "en",
+			Content:     richContent,
+			SpoilerText: "",
+			Visibility:  "public",
+			Application: richActivityApplication{
+				Name:    "xbsky.app",
+				Website: "https://xbsky.app",
+			},
+			Account: richActivityAccount{
+				ID:           strconv.Itoa(rand.Int()),
+				DisplayName:  sortedAPI.ParsedData.Author.DisplayName,
+				UserName:     sortedAPI.ParsedData.Author.Handle,
+				Acct:         sortedAPI.ParsedData.Author.Handle,
+				URL:          "https://bsky.app/profile/" + sortedAPI.ParsedData.Author.Handle,
+				URI:          "https://bsky.app/profile/" + sortedAPI.ParsedData.Author.Handle,
+				Avatar:       sortedAPI.ParsedData.Author.Avatar,
+				AvatarStatic: sortedAPI.ParsedData.Author.Avatar,
+			},
+			MediaAttachments: []richActivityMedia{},
+		}
+
+		if sortedAPI.ParsedData.IsVideo {
+			richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
+				ID:          strconv.Itoa(rand.Int()),
+				Type:        "video",
+				URL:         sortedAPI.ParsedData.VideoHelper,
+				Preview:     sortedAPI.ParsedData.Thumbnail,
+				Description: "",
+			})
+		} else {
+			if len(sortedAPI.ParsedData.Images) > 0 {
+				for _, v := range sortedAPI.ParsedData.Images {
+					richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
+						ID:          strconv.Itoa(rand.Int()),
+						Type:        "image",
+						URL:         v.FullSize,
+						Preview:     v.FullSize,
+						Description: v.Alt,
+					})
+				}
+			} else if sortedAPI.ParsedData.External.Thumb != "" {
+				richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
+					ID:          strconv.Itoa(rand.Int()),
+					Type:        "image",
+					URL:         sortedAPI.ParsedData.External.Thumb,
+					Preview:     sortedAPI.ParsedData.External.Thumb,
+					Description: "",
+				})
+			} else if sortedAPI.ParsedData.CommonEmbeds.Avatar != "" {
+				richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
+					ID:          strconv.Itoa(rand.Int()),
+					Type:        "image",
+					URL:         sortedAPI.ParsedData.CommonEmbeds.Avatar,
+					Preview:     sortedAPI.ParsedData.CommonEmbeds.Avatar,
+					Description: "",
+				})
+			}
+		}
+	case "prof":
+		newAPIReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://api.xbsky.app/profile/"+actReqData.Handle, http.NoBody)
+		if err != nil {
+			errorPage(w, "failed to request api data")
+			return
+		}
+
+		apiResp, err := timeoutClient.Do(newAPIReq)
+		if err != nil {
+			errorPage(w, "failed to do api request")
+			return
+		}
+
+		defer apiResp.Body.Close()
+
+		var sortedAPI userProfile
+
+		if decodeErr := json.NewDecoder(apiResp.Body).Decode(&sortedAPI); decodeErr != nil {
+			errorPage(w, "failed to decode response")
+			return
+		}
+
+		richContent := fmt.Sprintf("<p>%s</p><p>👥 %s Followers &ensp; 🌐 %s Following &ensp; ✍️ %s Posts</p>", sortedAPI.Description, toNotation(sortedAPI.FollowersCount), toNotation(sortedAPI.FollowsCount), toNotation(sortedAPI.PostsCount))
+
+		if sortedAPI.Associated.Labeler {
+			richContent += "<p>🏷️ Labeler</p>"
+		}
+
+		richContent = strings.ReplaceAll(richContent, "\n", "<br>")
+
+		richEmbed = richActivity{
+			ID:          strconv.Itoa(rand.Int()),
+			URL:         "https://bsky.app/profile/" + sortedAPI.Handle,
+			URI:         "https://bsky.app/profile/" + sortedAPI.Handle,
+			CreatedAt:   sortedAPI.CreatedAt,
+			Language:    "en",
+			Content:     richContent,
+			SpoilerText: "",
+			Visibility:  "public",
+			Application: richActivityApplication{
+				Name:    "xbsky.app",
+				Website: "https://xbsky.app",
+			},
+			Account: richActivityAccount{
+				ID:           strconv.Itoa(rand.Int()),
+				DisplayName:  sortedAPI.DisplayName,
+				UserName:     sortedAPI.Handle,
+				Acct:         sortedAPI.Handle,
+				URL:          "https://bsky.app/profile/" + sortedAPI.Handle,
+				URI:          "https://bsky.app/profile/" + sortedAPI.Handle,
+				Avatar:       sortedAPI.Avatar,
+				AvatarStatic: sortedAPI.Avatar,
+			},
+			MediaAttachments: []richActivityMedia{},
+		}
+	case "feed":
+		newAPIReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, fmt.Sprintf("https://api.xbsky.app/profile/%s/feed/%s", actReqData.Handle, actReqData.PostID), http.NoBody)
+		if err != nil {
+			errorPage(w, "failed to request api data")
+			return
+		}
+
+		apiResp, err := timeoutClient.Do(newAPIReq)
+		if err != nil {
+			errorPage(w, "failed to do api request")
+			return
+		}
+
+		defer apiResp.Body.Close()
+
+		var sortedAPI apiFeed
+
+		if decodeErr := json.NewDecoder(apiResp.Body).Decode(&sortedAPI); decodeErr != nil {
+			errorPage(w, "failed to decode response")
+			return
+		}
+
+		richContent := fmt.Sprintf("<p>%s</p><p>🩷 %s Likes</p>", sortedAPI.View.Description, toNotation(sortedAPI.View.LikeCount))
+
+		if sortedAPI.IsOnline {
+			richContent += "<p>✅ Online</p>"
+		} else {
+			richContent += "<p>❌ Not online</p>"
+		}
+
+		if sortedAPI.IsValid {
+			richContent += "<p>✅ Valid</p>"
+		} else {
+			richContent += "<p>❌ Not valid</p>"
+		}
+
+		richContent = strings.ReplaceAll(richContent, "\n", "<br>")
+
+		richEmbed = richActivity{
+			ID:          strconv.Itoa(rand.Int()),
+			URL:         fmt.Sprintf("https://bsky.app/profile/%s/feed/%s", sortedAPI.View.Creator.Handle, actReqData.PostID),
+			URI:         fmt.Sprintf("https://bsky.app/profile/%s/feed/%s", sortedAPI.View.Creator.Handle, actReqData.PostID),
+			CreatedAt:   sortedAPI.View.IndexedAt,
+			Language:    "en",
+			Content:     richContent,
+			SpoilerText: "",
+			Visibility:  "public",
+			Application: richActivityApplication{
+				Name:    "xbsky.app",
+				Website: "https://xbsky.app",
+			},
+			Account: richActivityAccount{
+				ID:           strconv.Itoa(rand.Int()),
+				DisplayName:  sortedAPI.View.DisplayName,
+				UserName:     sortedAPI.View.Creator.Handle,
+				Acct:         sortedAPI.View.Creator.Handle,
+				URL:          "https://bsky.app/profile/" + sortedAPI.View.Creator.Handle,
+				URI:          "https://bsky.app/profile/" + sortedAPI.View.Creator.Handle,
+				Avatar:       sortedAPI.View.Creator.Avatar,
+				AvatarStatic: sortedAPI.View.Creator.Avatar,
+			},
+			MediaAttachments: []richActivityMedia{},
+		}
+
+		if sortedAPI.View.Avatar != "" {
+			richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
+				ID:          strconv.Itoa(rand.Int()),
+				Type:        "image",
+				URL:         sortedAPI.View.Avatar,
+				Preview:     sortedAPI.View.Avatar,
+				Description: "",
+			})
+		}
+	case "list":
+		newAPIReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, fmt.Sprintf("https://api.xbsky.app/profile/%s/lists/%s", actReqData.Handle, actReqData.PostID), http.NoBody)
+		if err != nil {
+			errorPage(w, "failed to request api data")
+			return
+		}
+
+		apiResp, err := timeoutClient.Do(newAPIReq)
+		if err != nil {
+			errorPage(w, "failed to do api request")
+			return
+		}
+
+		defer apiResp.Body.Close()
+
+		var sortedAPI apiList
+
+		if decodeErr := json.NewDecoder(apiResp.Body).Decode(&sortedAPI); decodeErr != nil {
+			errorPage(w, "failed to decode response")
+			return
+		}
+
+		richContent := fmt.Sprintf("<p>%s</p><p>👥 %s on List</p>", sortedAPI.List.Description, toNotation(sortedAPI.List.ItemCount))
+
+		richContent = strings.ReplaceAll(richContent, "\n", "<br>")
+
+		richEmbed = richActivity{
+			ID:          strconv.Itoa(rand.Int()),
+			URL:         fmt.Sprintf("https://bsky.app/profile/%s/feed/%s", sortedAPI.List.Creator.Handle, actReqData.PostID),
+			URI:         fmt.Sprintf("https://bsky.app/profile/%s/feed/%s", sortedAPI.List.Creator.Handle, actReqData.PostID),
+			CreatedAt:   sortedAPI.List.IndexedAt,
+			Language:    "en",
+			Content:     richContent,
+			SpoilerText: "",
+			Visibility:  "public",
+			Application: richActivityApplication{
+				Name:    "xbsky.app",
+				Website: "https://xbsky.app",
+			},
+			Account: richActivityAccount{
+				ID:           strconv.Itoa(rand.Int()),
+				DisplayName:  sortedAPI.List.Creator.DisplayName,
+				UserName:     sortedAPI.List.Creator.Handle,
+				Acct:         sortedAPI.List.Creator.Handle,
+				URL:          "https://bsky.app/profile/" + sortedAPI.List.Creator.Handle,
+				URI:          "https://bsky.app/profile/" + sortedAPI.List.Creator.Handle,
+				Avatar:       sortedAPI.List.Creator.Avatar,
+				AvatarStatic: sortedAPI.List.Creator.Avatar,
+			},
+			MediaAttachments: []richActivityMedia{},
+		}
+
+		if sortedAPI.List.Avatar != "" {
+			richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
+				ID:          strconv.Itoa(rand.Int()),
+				Type:        "image",
+				URL:         sortedAPI.List.Avatar,
+				Preview:     sortedAPI.List.Avatar,
+				Description: "",
+			})
+		}
+	case "pack":
+		newAPIReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, fmt.Sprintf("https://api.xbsky.app/starter-pack/%s/%s", actReqData.Handle, actReqData.PostID), http.NoBody)
+		if err != nil {
+			errorPage(w, "failed to request api data")
+			return
+		}
+
+		apiResp, err := timeoutClient.Do(newAPIReq)
+		if err != nil {
+			errorPage(w, "failed to do api request")
+			return
+		}
+
+		defer apiResp.Body.Close()
+
+		var sortedAPI apiPack
+
+		if decodeErr := json.NewDecoder(apiResp.Body).Decode(&sortedAPI); decodeErr != nil {
+			errorPage(w, "failed to decode response")
+			return
+		}
+
+		richContent := fmt.Sprintf("<p>%s</p>", sortedAPI.StarterPack.Record.Description)
+
+		richContent = strings.ReplaceAll(richContent, "\n", "<br>")
+
+		richEmbed = richActivity{
+			ID:          strconv.Itoa(rand.Int()),
+			URL:         fmt.Sprintf("https://bsky.app/starter-pack/%s/%s", sortedAPI.StarterPack.Creator.Handle, actReqData.PostID),
+			URI:         fmt.Sprintf("https://bsky.app/starter-pack/%s/%s", sortedAPI.StarterPack.Creator.Handle, actReqData.PostID),
+			CreatedAt:   sortedAPI.StarterPack.Record.CreatedAt,
+			Language:    "en",
+			Content:     richContent,
+			SpoilerText: "",
+			Visibility:  "public",
+			Application: richActivityApplication{
+				Name:    "xbsky.app",
+				Website: "https://xbsky.app",
+			},
+			Account: richActivityAccount{
+				ID:           strconv.Itoa(rand.Int()),
+				DisplayName:  sortedAPI.StarterPack.Creator.DisplayName,
+				UserName:     sortedAPI.StarterPack.Creator.Handle,
+				Acct:         sortedAPI.StarterPack.Creator.Handle,
+				URL:          "https://bsky.app/profile/" + sortedAPI.StarterPack.Creator.Handle,
+				URI:          "https://bsky.app/profile/" + sortedAPI.StarterPack.Creator.Handle,
+				Avatar:       sortedAPI.StarterPack.Creator.Avatar,
+				AvatarStatic: sortedAPI.StarterPack.Creator.Avatar,
+			},
+			MediaAttachments: []richActivityMedia{},
+		}
+
+		ogCard := fmt.Sprintf("https://ogcard.cdn.bsky.app/start/%s/%s", sortedAPI.StarterPack.Creator.DID, actReqData.PostID)
+		richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
+			ID:          strconv.Itoa(rand.Int()),
+			Type:        "image",
+			URL:         ogCard,
+			Preview:     ogCard,
+			Description: "",
+		})
+	default:
+		errorPage(w, "Invalid type")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(&richEmbed)
 }
 
 func genOembed(w http.ResponseWriter, r *http.Request) {
@@ -1315,7 +2106,7 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		embed.AuthorName = fmt.Sprintf("💬 %s   🔁 %s   ❤️ %s   📝 %s", toNotation(replies), toNotation(reposts), toNotation(likes), toNotation(quotes))
+		embed.AuthorName = fmt.Sprintf("💬 %s   🔁 %s   🩷 %s   📝 %s", toNotation(replies), toNotation(reposts), toNotation(likes), toNotation(quotes))
 
 		theDesc := r.URL.Query().Get("description")
 		if theDesc != "" {
@@ -1364,7 +2155,7 @@ func genOembed(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		embed.AuthorName = fmt.Sprintf("❤️ %s Likes", toNotation(likes))
+		embed.AuthorName = fmt.Sprintf("🩷 %s Likes", toNotation(likes))
 
 		if online {
 			embed.AuthorName += " - ✅ Online"
@@ -1409,6 +2200,16 @@ func main() {
 	sMux.HandleFunc("GET /profile/{profileID}/feed/{feedID}", getFeed)
 	sMux.HandleFunc("GET /profile/{profileID}/lists/{listID}", getList)
 	sMux.HandleFunc("GET /starter-pack/{profileID}/{packID}", getPack)
+
+	sMux.HandleFunc("GET /static/favicon.png", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./favicon.png")
+	})
+
+	sMux.HandleFunc("GET /users/{ignoredField}/statuses/{id}", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "https://xbsky.app/api/v1/statuses/"+r.PathValue("id"), http.StatusFound)
+	})
+
+	sMux.HandleFunc("GET /api/v1/statuses/{id}", genActivity)
 	sMux.HandleFunc("GET /oembed", genOembed)
 	sMux.HandleFunc("GET /", indexPage)
 
@@ -1451,14 +2252,13 @@ func main() {
 }
 
 func toNotation(number int64) string {
-	floatNum := float64(number)
 	switch {
-	case (floatNum / 1e9) >= 1:
-		return fmt.Sprintf("%0.1fB", floatNum/1e9)
-	case (floatNum / 1e6) >= 1:
-		return fmt.Sprintf("%0.1fM", floatNum/1e6)
-	case (floatNum / 1e3) >= 1:
-		return fmt.Sprintf("%0.1fK", floatNum/1e3)
+	case number >= 1e9:
+		return strconv.FormatFloat(float64(number)/1e9, 'f', 1, 64) + "B"
+	case number >= 1e6:
+		return strconv.FormatFloat(float64(number)/1e6, 'f', 1, 64) + "M"
+	case number >= 1e3:
+		return strconv.FormatFloat(float64(number)/1e3, 'f', 1, 64) + "K"
 	default:
 		return strconv.FormatInt(number, 10)
 	}

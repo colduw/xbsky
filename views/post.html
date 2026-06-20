@@ -4,6 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>xbsky.app</title>
+    <link rel="icon" href="https://xbsky.app/static/favicon.png" sizes="any">
+
+    {{if not .isTelegram}}
+        <link rel="alternate" type="application/activity+json" href="https://xbsky.app/users/c/statuses/{{.encodedID}}">
+    {{end}}
 
     {{if not .isTelegram}}
         <meta http-equiv="refresh" content="0; url=https://bsky.app/profile/{{.data.Author.Handle}}/post/{{.postID}}">
@@ -90,7 +95,7 @@
         {{end}}
     {{end}}
 
-    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .data.IsVideo}}&description={{.data.Description | escapePath}}{{end}}&mediaMsg={{.mediaMsg}}">
+    <link rel="alternate" type="application/json+oembed" href="http://46.224.25.144/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .data.IsVideo}}&description={{.data.Description | escapePath}}{{end}}&mediaMsg={{.mediaMsg}}">
 </head>
 <!--
 +=++++++*+*++====----------------+*******==--...:..:........------:=::::::::..::---==***=----

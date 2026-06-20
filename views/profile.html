@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>xbsky.app</title>
+    <link rel="icon" href="https://xbsky.app/static/favicon.png" sizes="any">
+
+    {{if not .isTelegram}}
+        <link rel="alternate" type="application/activity+json" href="https://xbsky.app/users/c/statuses/{{.encodedID}}">
+    {{end}}
+
     {{if not .isTelegram}}
         <meta http-equiv="refresh" content="0; url=https://bsky.app/profile/{{.profile.Handle}}">
     {{end}}

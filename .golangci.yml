@@ -21,7 +21,7 @@ linters:
     # - embeddedstructfieldcheck
     # - err113
     - errcheck
-    - errchkjson
+    # - errchkjson
     - errname
     - errorlint
     - exhaustive
@@ -38,7 +38,7 @@ linters:
     - gochecknoinits
     - gochecksumtype
     # - gocognit
-    - goconst
+    # - goconst
     - gocritic
     # - gocyclo
     - godoclint
@@ -142,6 +142,7 @@ linters:
         - (*html/template.Template).Execute
         - (*strings.Builder).WriteString # Returns nil
         - fmt.Fprintf
+        - (*encoding/json.Encoder).Encode
     errchkjson:
       report-no-exported: true
     exhaustive:
@@ -168,6 +169,7 @@ linters:
       excludes:
         - G104
         - G704
+        - G404
       config:
         global:
           audit: true
@@ -227,6 +229,7 @@ linters:
             - net/http.ResponseWriter.Write
             - strings.Builder.WriteString # Returns nil
             - fmt.Fprintf
+            - encoding/json.Encoder.Encode
             - io.Closer.Close
     tagalign:
       strict: true

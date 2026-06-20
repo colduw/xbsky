@@ -4,13 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>xbsky.app</title>
+    <link rel="icon" href="https://xbsky.app/static/favicon.png" sizes="any">
+
+    {{if not .isTelegram}}
+        <link rel="alternate" type="application/activity+json" href="https://xbsky.app/users/c/statuses/{{.encodedID}}">
+    {{end}}
+
     {{if not .isTelegram}}
         <meta http-equiv="refresh" content="0; url=https://bsky.app/profile/{{.list.Creator.Handle}}/lists/{{.listID}}">
     {{end}}
 
     <meta name="theme-color" content="#0c01d0">
     <meta property="og:site_name" content="xbsky.app">
-    <meta property="og:title" content="{{.list.Name}}">
+    <meta property="og:title" content="{{.list.Name}} - {{.list.Creator.DisplayName}} (@{{.list.Creator.Handle}})">
     <meta property="og:url" content="https://bsky.app/profile/{{.list.Creator.Handle}}/lists/{{.listID}}">
 
     <meta property="twitter:title" content="{{.list.Name}}">
