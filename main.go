@@ -1271,12 +1271,12 @@ func getPost(w http.ResponseWriter, r *http.Request) {
 			// Let's assume it's not a gif
 			selfData.IsGif = false
 		} else {
-			selfData.IsGif = (parsedURL.Host == "media.tenor.com")
+			selfData.IsGif = (parsedURL.Host == "media.tenor.com" || parsedURL.Host == "static.klipy.com")
 		}
 
 		if selfData.IsGif {
 			// The template is stupidly persistent on rewriting & to &amp; come hell or high water it will rewrite it
-			selfData.External.URI = "https://media.tenor.com" + parsedURL.Path
+			selfData.External.URI = "https://" + parsedURL.Host + parsedURL.Path
 		} else {
 			// Not a GIF, Add the external's title & description to the template description
 			selfData.Description += "\n\n" + selfData.External.Title + "\n" + selfData.External.Description
@@ -1711,7 +1711,7 @@ func genActivity(w http.ResponseWriter, r *http.Request) {
 			richContent += "</blockquote>"
 		}
 
-		if sortedAPI.ParsedData.External.Title != "" {
+		if sortedAPI.ParsedData.External.Title != "" && !sortedAPI.ParsedData.IsGif {
 			richContent += fmt.Sprintf(`<blockquote><p>%s</p><p>%s</p><p><a href=%q>%s</a></p></blockquote>`, sortedAPI.ParsedData.External.Title, sortedAPI.ParsedData.External.Description, sortedAPI.ParsedData.External.URI, sortedAPI.ParsedData.External.URI)
 		}
 
@@ -1765,13 +1765,23 @@ func genActivity(w http.ResponseWriter, r *http.Request) {
 					})
 				}
 			} else if sortedAPI.ParsedData.External.Thumb != "" {
-				richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
-					ID:          strconv.Itoa(rand.Int()),
-					Type:        "image",
-					URL:         sortedAPI.ParsedData.External.Thumb,
-					Preview:     sortedAPI.ParsedData.External.Thumb,
-					Description: "",
-				})
+				if sortedAPI.ParsedData.IsGif {
+					richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
+						ID:          strconv.Itoa(rand.Int()),
+						Type:        "image",
+						URL:         sortedAPI.ParsedData.External.URI,
+						Preview:     sortedAPI.ParsedData.External.URI,
+						Description: "",
+					})
+				} else {
+					richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
+						ID:          strconv.Itoa(rand.Int()),
+						Type:        "image",
+						URL:         sortedAPI.ParsedData.External.Thumb,
+						Preview:     sortedAPI.ParsedData.External.Thumb,
+						Description: "",
+					})
+				}
 			} else if sortedAPI.ParsedData.CommonEmbeds.Avatar != "" {
 				richEmbed.MediaAttachments = append(richEmbed.MediaAttachments, richActivityMedia{
 					ID:          strconv.Itoa(rand.Int()),
