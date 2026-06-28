@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>xbsky.app</title>
-    <link rel="icon" href="https://xbsky.app/static/favicon.png" sizes="any">
+    <title>{{.passData.DomainName}}</title>
+    <link rel="icon" href="https://{{.passData.DomainName}}/static/favicon.png" sizes="any">
 
     {{if not .isTelegram}}
-        <link rel="alternate" type="application/activity+json" href="https://xbsky.app/users/c/statuses/{{.encodedID}}">
+        <link rel="alternate" type="application/activity+json" href="https://{{.passData.DomainName}}/users/c/statuses/{{.encodedID}}">
     {{end}}
 
     {{if not .isTelegram}}
@@ -18,8 +18,8 @@
         <meta name="author" content="{{.data.Author.DisplayName}} (@{{.data.Author.Handle}})">
     {{end}}
 
-    <meta name="theme-color" content="#0c01d0">
-    <meta property="og:site_name" content="xbsky.app">
+    <meta name="theme-color" content="{{.passData.ThemeColor}}">
+    <meta property="og:site_name" content="{{.passData.DomainName}}">
     <meta property="og:title" content="{{.data.Author.DisplayName}} (@{{.data.Author.Handle}})">
     <meta property="og:url" content="https://bsky.app/profile/{{.data.Author.Handle}}/post/{{.postID}}">
 
@@ -36,11 +36,11 @@
     {{if or (eq .data.Type "app.bsky.embed.images#view") (eq .data.Type "app.bsky.embed.gallery#view")}}
         <meta property="twitter:card" content="summary_large_image">
         {{if and (.isTelegram) (gt (len .data.Images) 1)}}
-            <meta property="og:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
-            <meta property="twitter:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
+            <meta property="og:image" content="https://mosaic.{{.passData.DomainName}}/profile/{{.editedPID}}/post/{{.postID}}">
+            <meta property="twitter:image" content="https://mosaic.{{.passData.DomainName}}/profile/{{.editedPID}}/post/{{.postID}}">
         {{else if eq .data.Type "app.bsky.embed.gallery#view"}}
-            <meta property="og:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
-            <meta property="twitter:image" content="https://mosaic.xbsky.app/profile/{{.editedPID}}/post/{{.postID}}">
+            <meta property="og:image" content="https://mosaic.{{.passData.DomainName}}/profile/{{.editedPID}}/post/{{.postID}}">
+            <meta property="twitter:image" content="https://mosaic.{{.passData.DomainName}}/profile/{{.editedPID}}/post/{{.postID}}">
         {{else}}
             {{range $i, $v := .data.Images}}
                 <meta property="og:image" content="{{$v.FullSize}}">

@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>xbsky.app</title>
-    <link rel="icon" href="https://xbsky.app/static/favicon.png" sizes="any">
+    <title>{{.passData.DomainName}}</title>
+    <link rel="icon" href="https://{{.passData.DomainName}}/static/favicon.png" sizes="any">
 
     {{if not .isTelegram}}
-        <link rel="alternate" type="application/activity+json" href="https://xbsky.app/users/c/statuses/{{.encodedID}}">
+        <link rel="alternate" type="application/activity+json" href="https://{{.passData.DomainName}}/users/c/statuses/{{.encodedID}}">
     {{end}}
 
     {{if not .isTelegram}}
         <meta http-equiv="refresh" content="0; url=https://bsky.app/profile/{{.profile.Handle}}">
     {{end}}
 
-    <meta name="theme-color" content="#0c01d0">
-    <meta property="og:site_name" content="xbsky.app">
+    <meta name="theme-color" content="{{.passData.ThemeColor}}">
+    <meta property="og:site_name" content="{{.passData.DomainName}}">
     <meta property="og:title" content="{{.profile.DisplayName}} (@{{.profile.Handle}})">
     <meta property="og:url" content="https://bsky.app/profile/{{.profile.Handle}}">
 
@@ -31,7 +31,7 @@
         <meta property="twitter:image" content="{{.profile.Avatar}}">
     {{end}}
 
-    <link rel="alternate" type="application/json+oembed" href="https://xbsky.app/oembed?for=profile&followers={{.profile.FollowersCount}}&follows={{.profile.FollowsCount}}&posts={{.profile.PostsCount}}&labeler={{.profile.Associated.Labeler}}">
+    <link rel="alternate" type="application/json+oembed" href="https://{{.passData.DomainName}}/oembed?for=profile&followers={{.profile.FollowersCount}}&follows={{.profile.FollowsCount}}&posts={{.profile.PostsCount}}&labeler={{.profile.Associated.Labeler}}">
 </head>
 <body>
     <p>Redirecting in a moment..</p>

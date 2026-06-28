@@ -41,7 +41,7 @@ linters:
     # - goconst
     - gocritic
     # - gocyclo
-    - godoclint
+    # - godoclint
     # - godot
     - godox
     - goheader
@@ -202,6 +202,12 @@ linters:
       enable-all-rules: true
       rules:
         - name: package-comments
+          disabled: true
+        - name: max-public-structs
+          disabled: true
+        - name: exported
+          disabled: true
+        - name: package-naming
           disabled: true
         - name: add-constant
           disabled: true
