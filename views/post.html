@@ -95,7 +95,7 @@
         {{end}}
     {{end}}
 
-    <link rel="alternate" type="application/json+oembed" href="http://46.224.25.144/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .data.IsVideo}}&description={{.data.Description | escapePath}}{{end}}&mediaMsg={{.mediaMsg}}">
+    <link rel="alternate" type="application/json+oembed" href="https://{{.passData.DomainName}}/oembed?for=post&replies={{.data.ReplyCount}}&reposts={{.data.RepostCount}}&likes={{.data.LikeCount}}&quotes={{.data.QuoteCount}}{{if .data.IsVideo}}&description={{.data.Description | escapePath}}{{end}}&mediaMsg={{.mediaMsg}}">
 </head>
 <!--
 +=++++++*+*++====----------------+*******==--...:..:........------:=::::::::..::---==***=----

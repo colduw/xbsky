@@ -4,9 +4,6 @@ WORKDIR /app
 
 COPY . .
 
-RUN rm go.mod go.sum
-RUN go mod init main
-RUN go get -u
 RUN CGO_ENABLED=0 go build main.go
 
 FROM ubuntu:latest AS final
