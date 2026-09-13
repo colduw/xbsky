@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"html/template"
@@ -59,7 +59,7 @@ func (ps *HandlerPass) GetPack(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var pack types.APIPack
-	if decodeErr := json.NewDecoder(resp.Body).Decode(&pack); decodeErr != nil {
+	if decodeErr := json.UnmarshalRead(resp.Body, &pack); decodeErr != nil {
 		ErrorPage(w, "getPack: failed to decode response")
 		return
 	}
@@ -77,7 +77,7 @@ func (ps *HandlerPass) GetPack(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.Host, "api.") {
 		w.Header().Set("Content-Type", "application/json")
 
-		if encodeErr := json.NewEncoder(w).Encode(&pack); encodeErr != nil {
+		if encodeErr := json.MarshalWrite(w, &pack); encodeErr != nil {
 			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
 			return
 		}

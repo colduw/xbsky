@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"html/template"
@@ -63,7 +63,7 @@ func (ps *HandlerPass) GetPost(w http.ResponseWriter, r *http.Request) {
 
 	var postData types.APIThread
 
-	if decodeErr := json.NewDecoder(postResp.Body).Decode(&postData); decodeErr != nil {
+	if decodeErr := json.UnmarshalRead(postResp.Body, &postData); decodeErr != nil {
 		ErrorPage(w, "getPost: Failed to decode response")
 		return
 	}
@@ -491,7 +491,7 @@ func (ps *HandlerPass) GetPost(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var buf bytes.Buffer
-		if encodeErr := json.NewEncoder(&buf).Encode(map[string]any{"originalData": postData, "parsedData": selfData}); encodeErr != nil {
+		if encodeErr := json.MarshalWrite(&buf, map[string]any{"originalData": postData, "parsedData": selfData}); encodeErr != nil {
 			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
 			return
 		}

@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -144,7 +144,7 @@ func (ps *HandlerPass) GenOembed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if encodeErr := json.NewEncoder(w).Encode(&embed); encodeErr != nil {
+	if encodeErr := json.MarshalWrite(w, &embed); encodeErr != nil {
 		http.Error(w, "genOembed: Failed to encode JSON", http.StatusInternalServerError)
 		return
 	}

@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"html/template"
@@ -59,7 +59,7 @@ func (ps *HandlerPass) GetList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var list types.APIList
-	if decodeErr := json.NewDecoder(resp.Body).Decode(&list); decodeErr != nil {
+	if decodeErr := json.UnmarshalRead(resp.Body, &list); decodeErr != nil {
 		ErrorPage(w, "getList: failed to decode response")
 		return
 	}
@@ -82,7 +82,7 @@ func (ps *HandlerPass) GetList(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.Host, "api.") {
 		w.Header().Set("Content-Type", "application/json")
 
-		if encodeErr := json.NewEncoder(w).Encode(&list); encodeErr != nil {
+		if encodeErr := json.MarshalWrite(w, &list); encodeErr != nil {
 			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
 			return
 		}

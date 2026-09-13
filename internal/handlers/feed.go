@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"html/template"
@@ -59,7 +59,7 @@ func (ps *HandlerPass) GetFeed(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var feed types.APIFeed
-	if decodeErr := json.NewDecoder(resp.Body).Decode(&feed); decodeErr != nil {
+	if decodeErr := json.UnmarshalRead(resp.Body, &feed); decodeErr != nil {
 		ErrorPage(w, "getFeed: failed to decode response")
 		return
 	}
@@ -77,7 +77,7 @@ func (ps *HandlerPass) GetFeed(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(r.Host, "api.") {
 		w.Header().Set("Content-Type", "application/json")
 
-		if encodeErr := json.NewEncoder(w).Encode(&feed); encodeErr != nil {
+		if encodeErr := json.MarshalWrite(w, &feed); encodeErr != nil {
 			http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
 			return
 		}

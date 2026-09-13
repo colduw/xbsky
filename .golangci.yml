@@ -8,6 +8,7 @@ linters:
     - bidichk
     - bodyclose
     - canonicalheader
+    - clickhouselint
     - containedctx
     - contextcheck
     - copyloopvar
@@ -25,7 +26,7 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    # - exhaustruct
+    # - exhaustruct_v5
     - exptostd
     - fatcontext
     # - forbidigo
@@ -46,7 +47,7 @@ linters:
     - godox
     - goheader
     - gomoddirectives
-    - gomodguard
+    - gomodguard_v2
     - goprintffuncname
     - gosec
     - gosmopolitan
@@ -110,7 +111,7 @@ linters:
     # - varnamelen
     - wastedassign
     - whitespace
-    - wrapcheck
+    # - wrapcheck
     # - wsl_v5
     - zerologlint
   settings:
@@ -130,19 +131,33 @@ linters:
         all:
           list-mode: lax
           deny:
-            - pkg: text/template
+            - pkg: "text/template"
               desc: use html/template instead of text/template
+
+            - pkg: "math/rand$"
+              desc: use math/rand/v2
+            
+            - pkg: "encoding/json$"
+              desc: use encoding/json/v2
+    dupword:
+      keywords:
+        - "the"
+        - "and"
+        - "a"
+      comments-only: true
+      skip-raw-strings: true
     errcheck:
       disable-default-exclusions: true
       check-type-assertions: true
       check-blank: true
+      verbose: true
       exclude-functions:
         - (net/http.ResponseWriter).Write
         - (io.ReadCloser).Close
         - (*html/template.Template).Execute
         - (*strings.Builder).WriteString # Returns nil
         - fmt.Fprintf
-        - (*encoding/json.Encoder).Encode
+        - encoding/json/v2.MarshalWrite
     errchkjson:
       report-no-exported: true
     exhaustive:
@@ -165,11 +180,17 @@ linters:
           skipBalanced: false
         underef:
           skipRecvDeref: false
+        rangeExprCopy:
+          skipTestFuncs: false
+        rangeValCopy:
+          skipTestFuncs: false
+        truncateCmp:
+          skipArchDependent: false
     gosec:
       excludes:
         - G104
-        - G704
         - G404
+        - G704
       config:
         global:
           audit: true
@@ -185,20 +206,27 @@ linters:
       type-require-single-type: true
     misspell:
       locale: US
+      mode: default
+    paralleltest:
+      check-cleanup: true
     nestif:
       min-complexity: 10
     nonamedreturns:
       report-error-in-defer: true
     perfsprint:
       err-error: true
+      loop-other-ops: true
+    prealloc:
+      for-loops: true
     predeclared:
       qualified-name: true
     promlinter:
       strict: true
     reassign:
       patterns:
-        - .*
+        - ".*"
     revive:
+      confidence: 0.1
       enable-all-rules: true
       rules:
         - name: package-comments
@@ -235,13 +263,19 @@ linters:
             - net/http.ResponseWriter.Write
             - strings.Builder.WriteString # Returns nil
             - fmt.Fprintf
-            - encoding/json.Encoder.Encode
+            - encoding/json/v2.MarshalWrite
             - io.Closer.Close
+    unconvert:
+      fast-math: true
+    unqueryvet:
+      check-n1: true
+      check-tx-leaks: true
     tagalign:
       strict: true
     testifylint:
       enable-all: true
     usestdlibvars:
+      time-date-month: true
       time-month: true
       time-layout: true
       crypto-hash: true
@@ -266,7 +300,10 @@ formatters:
   settings:
     gofumpt:
       module-path: main
-      extra-rules: true
+      extra:
+        group-params: true
+        clothe-returns: true
+        balance-calls: true
   exclusions:
     generated: lax
     paths:

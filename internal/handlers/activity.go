@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/hex"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"math/rand/v2"
 	"net/http"
@@ -54,7 +54,7 @@ func (ps *HandlerPass) GenActivity(w http.ResponseWriter, r *http.Request) {
 
 		var sortedAPI types.SortedAPIResponse
 
-		if decodeErr := json.NewDecoder(apiResp.Body).Decode(&sortedAPI); decodeErr != nil {
+		if decodeErr := json.UnmarshalRead(apiResp.Body, &sortedAPI); decodeErr != nil {
 			ErrorPage(w, "failed to decode response")
 			return
 		}
@@ -336,7 +336,7 @@ func (ps *HandlerPass) GenActivity(w http.ResponseWriter, r *http.Request) {
 
 		var sortedAPI types.UserProfile
 
-		if decodeErr := json.NewDecoder(apiResp.Body).Decode(&sortedAPI); decodeErr != nil {
+		if decodeErr := json.UnmarshalRead(apiResp.Body, &sortedAPI); decodeErr != nil {
 			ErrorPage(w, "failed to decode response")
 			return
 		}
@@ -391,7 +391,7 @@ func (ps *HandlerPass) GenActivity(w http.ResponseWriter, r *http.Request) {
 
 		var sortedAPI types.APIFeed
 
-		if decodeErr := json.NewDecoder(apiResp.Body).Decode(&sortedAPI); decodeErr != nil {
+		if decodeErr := json.UnmarshalRead(apiResp.Body, &sortedAPI); decodeErr != nil {
 			ErrorPage(w, "failed to decode response")
 			return
 		}
@@ -464,7 +464,7 @@ func (ps *HandlerPass) GenActivity(w http.ResponseWriter, r *http.Request) {
 
 		var sortedAPI types.APIList
 
-		if decodeErr := json.NewDecoder(apiResp.Body).Decode(&sortedAPI); decodeErr != nil {
+		if decodeErr := json.UnmarshalRead(apiResp.Body, &sortedAPI); decodeErr != nil {
 			ErrorPage(w, "failed to decode response")
 			return
 		}
@@ -525,7 +525,7 @@ func (ps *HandlerPass) GenActivity(w http.ResponseWriter, r *http.Request) {
 
 		var sortedAPI types.APIPack
 
-		if decodeErr := json.NewDecoder(apiResp.Body).Decode(&sortedAPI); decodeErr != nil {
+		if decodeErr := json.UnmarshalRead(apiResp.Body, &sortedAPI); decodeErr != nil {
 			ErrorPage(w, "failed to decode response")
 			return
 		}
@@ -574,5 +574,5 @@ func (ps *HandlerPass) GenActivity(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(&richEmbed)
+	json.MarshalWrite(w, &richEmbed)
 }

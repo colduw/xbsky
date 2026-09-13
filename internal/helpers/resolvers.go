@@ -2,7 +2,7 @@ package helpers
 
 import (
 	"context"
-	"encoding/json"
+	"encoding/json/v2"
 	"fmt"
 	"io"
 	"net"
@@ -64,7 +64,7 @@ func ResolveHandleAPI(ctx context.Context, handle string) (string, bool) {
 	}
 
 	var uDID types.APIDID
-	if decodeErr := json.NewDecoder(resp.Body).Decode(&uDID); decodeErr != nil {
+	if decodeErr := json.UnmarshalRead(resp.Body, &uDID); decodeErr != nil {
 		return handle, false
 	}
 
@@ -175,7 +175,7 @@ func ResolvePLC(ctx context.Context, did string) types.PLCDirectory {
 
 	var plc types.PLCDirectory
 
-	if decodeErr := json.NewDecoder(io.LimitReader(resp.Body, MaxReadLimit)).Decode(&plc); decodeErr != nil {
+	if decodeErr := json.UnmarshalRead(io.LimitReader(resp.Body, MaxReadLimit), &plc); decodeErr != nil {
 		return types.PLCDirectory{}
 	}
 

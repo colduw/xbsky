@@ -123,5 +123,5 @@ func LoadEnv() error {
 		}
 	}
 
-	return nil
+	return scanner.Err()
 }
