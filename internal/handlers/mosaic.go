@@ -32,7 +32,7 @@ func GenMosaic(w http.ResponseWriter, r *http.Request, images types.APIImages) {
 
 	var filterComplex strings.Builder
 	for i := range images {
-		fmt.Fprintf(&filterComplex, "[%d:v]scale=%d:-2[m%d];", i, avgWidth, i)
+		fmt.Fprintf(&filterComplex, "[%d:v]scale=-1:%d[m%d];", i, avgWidth, i)
 	}
 
 	for i := range images {
