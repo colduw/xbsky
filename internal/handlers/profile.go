@@ -20,6 +20,11 @@ func (ps *HandlerPass) GetProfile(w http.ResponseWriter, r *http.Request) {
 	profileID := r.PathValue("profileID")
 	profileID = strings.ReplaceAll(profileID, "|", "")
 
+	if !strings.Contains(profileID, ".") && !strings.Contains(profileID, ":") {
+		ErrorPage(w, "getProfile: Invalid handle")
+		return
+	}
+
 	editedPID := profileID
 	if !strings.HasPrefix(editedPID, "did:plc") {
 		editedPID = helpers.ResolveHandle(r.Context(), editedPID)

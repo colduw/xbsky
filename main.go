@@ -40,11 +40,22 @@ func main() {
 
 	sMux := http.NewServeMux()
 	sMux.HandleFunc("GET /profile/{profileID}", hPass.GetProfile)
+	sMux.HandleFunc("GET /{profileID}", hPass.GetProfile)
+
 	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}", hPass.GetPost)
+	sMux.HandleFunc("GET /{profileID}/p/{postID}", hPass.GetPost)
+
 	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}/photo/{photoNum}", hPass.GetPost)
+	sMux.HandleFunc("GET /{profileID}/p/{postID}/p/{photoNum}", hPass.GetPost)
+
 	sMux.HandleFunc("GET /profile/{profileID}/feed/{feedID}", hPass.GetFeed)
+	sMux.HandleFunc("GET /{profileID}/f/{feedID}", hPass.GetFeed)
+
 	sMux.HandleFunc("GET /profile/{profileID}/lists/{listID}", hPass.GetList)
+	sMux.HandleFunc("GET /{profileID}/l/{listID}", hPass.GetList)
+
 	sMux.HandleFunc("GET /starter-pack/{profileID}/{packID}", hPass.GetPack)
+	sMux.HandleFunc("GET /{profileID}/sp/{packID}", hPass.GetPack)
 
 	sMux.HandleFunc("GET /static/favicon.png", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./favicon.png")
