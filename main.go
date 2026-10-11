@@ -43,16 +43,28 @@ func main() {
 	sMux.HandleFunc("GET /p/{profileID}/", hPass.GetProfile)
 
 	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}/", hPass.GetPost)
+	sMux.HandleFunc("GET /profile/{profileID}/p/{postID}/", hPass.GetPost)
 	sMux.HandleFunc("GET /p/{profileID}/p/{postID}/", hPass.GetPost)
+	sMux.HandleFunc("GET /p/{profileID}/post/{postID}/", hPass.GetPost)
 
 	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}/photo/{photoNum}/", hPass.GetPost)
+	sMux.HandleFunc("GET /profile/{profileID}/post/{postID}/p/{photoNum}/", hPass.GetPost)
+	sMux.HandleFunc("GET /profile/{profileID}/p/{postID}/photo/{photoNum}/", hPass.GetPost)
+	sMux.HandleFunc("GET /profile/{profileID}/p/{postID}/p/{photoNum}/", hPass.GetPost)
+	sMux.HandleFunc("GET /p/{profileID}/post/{postID}/photo/{photoNum}/", hPass.GetPost)
+	sMux.HandleFunc("GET /p/{profileID}/post/{postID}/p/{photoNum}/", hPass.GetPost)
 	sMux.HandleFunc("GET /p/{profileID}/p/{postID}/p/{photoNum}/", hPass.GetPost)
+	sMux.HandleFunc("GET /p/{profileID}/p/{postID}/photo/{photoNum}/", hPass.GetPost)
 
 	sMux.HandleFunc("GET /profile/{profileID}/feed/{feedID}/", hPass.GetFeed)
+	sMux.HandleFunc("GET /profile/{profileID}/f/{feedID}/", hPass.GetFeed)
 	sMux.HandleFunc("GET /p/{profileID}/f/{feedID}/", hPass.GetFeed)
+	sMux.HandleFunc("GET /p/{profileID}/feed/{feedID}/", hPass.GetFeed)
 
 	sMux.HandleFunc("GET /profile/{profileID}/lists/{listID}/", hPass.GetList)
+	sMux.HandleFunc("GET /profile/{profileID}/l/{listID}/", hPass.GetList)
 	sMux.HandleFunc("GET /p/{profileID}/l/{listID}/", hPass.GetList)
+	sMux.HandleFunc("GET /p/{profileID}/lists/{listID}/", hPass.GetList)
 
 	sMux.HandleFunc("GET /starter-pack/{profileID}/{packID}/", hPass.GetPack)
 	sMux.HandleFunc("GET /sp/{profileID}/{packID}/", hPass.GetPack)
